@@ -1,0 +1,61 @@
+# =========================================
+# PROYECTO: Plataforma de Venta de Entradas
+# REQUERIMIENTOS DE INSTALACIÓN
+# =========================================
+
+# ========================
+# SISTEMA BASE
+# ========================
+Node.js (LTS)           
+npm (incluido con Node.js)
+MySQL Server          
+Git                    
+Visual Studio Code     
+
+# ========================
+# BACKEND (Node.js)
+# Instalar dentro de /backend
+# ========================
+npm init -y
+
+npm install express
+npm install mysql2
+npm install dotenv
+npm install cors
+
+# ========================
+# SEGURIDAD
+# ========================
+npm install jsonwebtoken
+npm install bcryptjs
+
+# ========================
+# FUNCIONALIDAD PRINCIPAL
+# ========================
+npm install qrcode
+npm install uuid
+
+
+# ========================
+# BASE DE DATOS
+# ========================
+MySQL Workbench 
+
+
+# ========================
+# CONFIGURACIONES NECESARIAS
+# ========================
+Crear archivo .env con:
+
+DB_HOST=
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
+
+PAYPHONE_TOKEN=
+PAYPHONE_STORE_ID=
+
+EMAIL_USER=
+EMAIL_PASS=
+
+PORT=
