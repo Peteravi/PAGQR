@@ -1,0 +1,371 @@
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --secondary: #0f172a;
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --success: #16a34a;
+    --border: #e2e8f0;
+    --shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+    --radius: 22px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(180deg, #eff6ff 0%, var(--bg) 40%);
+    color: var(--text);
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+.container-custom {
+    width: min(1120px, 92%);
+    margin: 0 auto;
+}
+
+.topbar {
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.topbar .container-custom {
+    min-height: 74px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.nav-links {
+    display: flex;
+    gap: 24px;
+}
+
+.nav-links a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.nav-links a:hover {
+    color: #fff;
+}
+
+.confirmation-page {
+    padding: 42px 0 60px;
+}
+
+.hero-card {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--shadow);
+    border-radius: 28px;
+    padding: 34px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #ecfdf3;
+    color: #166534;
+    border-radius: 999px;
+    font-weight: 700;
+    margin-bottom: 24px;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    background: var(--success);
+    border-radius: 50%;
+}
+
+.hero-content {
+    display: grid;
+    grid-template-columns: 1.4fr 0.9fr;
+    gap: 28px;
+    align-items: center;
+}
+
+.check-circle {
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    box-shadow: 0 18px 35px rgba(34, 197, 94, 0.22);
+}
+
+.hero-left h1 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.hero-left p {
+    color: var(--muted);
+    line-height: 1.75;
+    max-width: 640px;
+    margin-bottom: 24px;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.btn-main,
+.btn-secondary-custom {
+    border: none;
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.25s ease;
+}
+
+.btn-main {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+}
+
+.btn-main:hover {
+    transform: translateY(-2px);
+}
+
+.btn-secondary-custom {
+    background: #e2e8f0;
+    color: var(--secondary);
+}
+
+.btn-secondary-custom:hover {
+    background: #cbd5e1;
+}
+
+.qr-preview-card {
+    background: linear-gradient(180deg, #f8fbff, #eef4ff);
+    border: 1px solid #dbeafe;
+    border-radius: 24px;
+    padding: 24px;
+    text-align: center;
+}
+
+.qr-preview-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 18px;
+    font-weight: 700;
+}
+
+.qr-box {
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 16px;
+    background: #fff;
+    border-radius: 20px;
+    display: grid;
+    place-items: center;
+    padding: 14px;
+    box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
+}
+
+.code-label {
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+.ticket-code {
+    font-size: 1rem;
+    color: var(--secondary);
+}
+
+.confirmation-details {
+    margin-top: 30px;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+}
+
+.info-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+}
+
+.info-card h2 {
+    font-size: 1.2rem;
+    margin-bottom: 18px;
+    font-weight: 800;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-item span {
+    color: var(--muted);
+}
+
+.footer-custom {
+    background: var(--secondary);
+    color: #cbd5e1;
+    text-align: center;
+    padding: 22px 0;
+    margin-top: 40px;
+}
+
+.modal-custom {
+    border-radius: 24px;
+    border: none;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.16);
+}
+
+.ticket-modal-layout {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr;
+    gap: 22px;
+    align-items: center;
+}
+
+.ticket-modal-left h3 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.ticket-modal-left p {
+    margin-bottom: 10px;
+    color: var(--text);
+}
+
+.ticket-modal-right {
+    display: flex;
+    justify-content: center;
+}
+
+.modal-qr-box {
+    width: 220px;
+    height: 220px;
+    background: #fff;
+    border-radius: 18px;
+    padding: 12px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.resume-list {
+    display: grid;
+    gap: 14px;
+}
+
+.resume-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.resume-list div:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.resume-list span {
+    color: var(--muted);
+}
+
+.success-text {
+    color: var(--success);
+}
+
+@media (max-width: 900px) {
+
+    .hero-content,
+    .details-grid,
+    .ticket-modal-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .hero-card,
+    .info-card {
+        padding: 24px;
+    }
+
+    .hero-right {
+        order: -1;
+    }
+
+    .qr-box,
+    .modal-qr-box {
+        width: 190px;
+        height: 190px;
+    }
+}
+
+@media (max-width: 600px) {
+    .topbar .container-custom {
+        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 0;
+    }
+
+    .nav-links {
+        gap: 14px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+    }
+
+    .btn-main,
+    .btn-secondary-custom {
+        width: 100%;
+    }
+
+    .hero-card {
+        padding: 20px;
+    }
+}

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PagQR - Entradas Online</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/css/styles.css">
+
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">PagQR</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="menuNavbar">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#">Inicio</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Eventos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Mis entradas</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Contacto</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- BANNER PRINCIPAL -->
+    <section class="bg-primary text-white py-5">
+        <div class="container text-center">
+            <h1 class="display-5 fw-bold">Compra tus entradas online</h1>
+            <p class="lead">Explora eventos, selecciona tu entrada y recibe tu código QR único.</p>
+            <a href="#eventos" class="btn btn-light btn-lg">Ver eventos</a>
+        </div>
+    </section>
+
+    <!-- BUSCADOR Y FILTROS -->
+    <section class="py-4 border-bottom">
+        <div class="container">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" placeholder="Buscar evento por nombre...">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select">
+                        <option selected>Filtrar por categoría</option>
+                        <option>Conciertos</option>
+                        <option>Teatro</option>
+                        <option>Conferencias</option>
+                        <option>Deportes</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select">
+                        <option selected>Filtrar por ciudad</option>
+                        <option>Guayaquil</option>
+                        <option>Quito</option>
+                        <option>Cuenca</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- LISTADO DE EVENTOS -->
+    <section id="eventos" class="py-5">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold mb-0">Eventos disponibles</h2>
+                <span class="text-muted">3 eventos encontrados</span>
+            </div>
+
+            <div class="row g-4">
+
+                <!-- EVENTO 1 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <img src="assets/img/evento1.jpg" class="card-img-top" alt="Evento 1">
+                        <div class="card-body">
+                            <h5 class="card-title">Festival Music Night</h5>
+                            <p class="card-text mb-1"><strong>Fecha:</strong> 20 de abril de 2026</p>
+                            <p class="card-text mb-1"><strong>Hora:</strong> 20:00</p>
+                            <p class="card-text mb-1"><strong>Lugar:</strong> Guayaquil</p>
+                            <p class="card-text mb-3"><strong>Precio:</strong> $25.00</p>
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal"
+                                data-bs-target="#detalleEventoModal">
+                                Ver detalle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EVENTO 2 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <img src="assets/img/evento2.jpg" class="card-img-top" alt="Evento 2">
+                        <div class="card-body">
+                            <h5 class="card-title">Conferencia Tech Future</h5>
+                            <p class="card-text mb-1"><strong>Fecha:</strong> 05 de mayo de 2026</p>
+                            <p class="card-text mb-1"><strong>Hora:</strong> 09:00</p>
+                            <p class="card-text mb-1"><strong>Lugar:</strong> Quito</p>
+                            <p class="card-text mb-3"><strong>Precio:</strong> $15.00</p>
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal"
+                                data-bs-target="#detalleEventoModal">
+                                Ver detalle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EVENTO 3 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <img src="assets/img/evento3.jpg" class="card-img-top" alt="Evento 3">
+                        <div class="card-body">
+                            <h5 class="card-title">Obra de Teatro Clásico</h5>
+                            <p class="card-text mb-1"><strong>Fecha:</strong> 12 de mayo de 2026</p>
+                            <p class="card-text mb-1"><strong>Hora:</strong> 19:30</p>
+                            <p class="card-text mb-1"><strong>Lugar:</strong> Cuenca</p>
+                            <p class="card-text mb-3"><strong>Precio:</strong> $12.00</p>
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal"
+                                data-bs-target="#detalleEventoModal">
+                                Ver detalle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- MODAL DETALLE DEL EVENTO -->
+    <div class="modal fade" id="detalleEventoModal" tabindex="-1" aria-labelledby="detalleEventoModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="detalleEventoModalLabel">Detalle del evento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <img src="assets/img/evento1.jpg" class="img-fluid rounded" alt="Evento detalle">
+                        </div>
+                        <div class="col-md-6">
+                            <h3 class="fw-bold">Festival Music Night</h3>
+                            <p><strong>Fecha:</strong> 20 de abril de 2026</p>
+                            <p><strong>Hora:</strong> 20:00</p>
+                            <p><strong>Lugar:</strong> Coliseo Principal, Guayaquil</p>
+                            <p><strong>Precio:</strong> $25.00</p>
+                            <p>
+                                <strong>Descripción:</strong> Disfruta de una noche inolvidable con artistas invitados,
+                                luces, shows en vivo y una experiencia única para todos los asistentes.
+                            </p>
+                            <div class="d-grid">
+                                <button class="btn btn-success" data-bs-target="#compraModal" data-bs-toggle="modal">
+                                    Comprar entrada
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL COMPRA -->
+    <div class="modal fade" id="compraModal" tabindex="-1" aria-labelledby="compraModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="compraModalLabel">Comprar entrada</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nombres</label>
+                                <input type="text" class="form-control" placeholder="Ingrese sus nombres">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Apellidos</label>
+                                <input type="text" class="form-control" placeholder="Ingrese sus apellidos">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Correo electrónico</label>
+                                <input type="email" class="form-control" placeholder="ejemplo@correo.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" class="form-control" placeholder="0999999999">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Cédula o RUC</label>
+                                <input type="text" class="form-control" placeholder="Ingrese su identificación">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Cantidad de entradas</label>
+                                <input type="number" class="form-control" min="1" value="1">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Dirección</label>
+                                <input type="text" class="form-control" placeholder="Ingrese su dirección">
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold">Resumen de compra</h6>
+                                <p class="mb-1">Evento: Festival Music Night</p>
+                                <p class="mb-1">Cantidad: 1</p>
+                                <p class="mb-1">Precio unitario: $25.00</p>
+                                <p class="fw-bold">Total: $25.00</p>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <div class="d-grid w-100">
+                                    <button type="button" class="btn btn-primary btn-lg">
+                                        Pagar con PayPhone
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">© 2026 PagQR - Plataforma de venta de entradas online</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/main.js"></script>
+</body>
+
+</html>

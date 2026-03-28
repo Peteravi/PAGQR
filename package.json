@@ -1,0 +1,15 @@
+{
+  "name": "pagqr",
+  "version": "1.0.0",
+  "description": "Frontend PagQR",
+  "main": "index.js",
+  "scripts": {
+    "dev": "live-server frontend/public",
+    "start": "live-server frontend/public"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
