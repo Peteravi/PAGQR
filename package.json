@@ -1,15 +1,23 @@
 {
   "name": "pagqr",
   "version": "1.0.0",
-  "description": "Frontend PagQR",
-  "main": "index.js",
+  "description": "Plataforma PagQR con frontend, backend y MySQL",
+  "main": "backend/src/server.js",
   "scripts": {
-    "dev": "live-server frontend/public",
-    "start": "live-server frontend/public"
+    "frontend": "live-server frontend/public",
+    "backend": "node backend/src/server.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "start": "node backend/src/server.js"
   },
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "mysql2": "^3.14.0"
+  },
   "devDependencies": {
+    "concurrently": "^9.0.1",
     "live-server": "^1.2.2"
   }
 }
