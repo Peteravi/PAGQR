@@ -12,7 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^16.4.5",
+    "axios": "^1.14.1",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "mysql2": "^3.14.0"
   },

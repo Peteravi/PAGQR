@@ -8,11 +8,11 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // Elementos del DOM
-    const eventosContainer = document.querySelector("#eventos .row");
-    const counterText = document.querySelector("#eventos .text-muted");
-    const searchInput = document.querySelector('section.border-bottom input[type="text"]');
-    const categorySelect = document.querySelectorAll('section.border-bottom select')[0];
-    const citySelect = document.querySelectorAll('section.border-bottom select')[1];
+    const eventosContainer = document.getElementById("eventosContainer");
+    const counterText = document.getElementById("eventosCount");
+    const searchInput = document.getElementById("searchInput");
+    const categorySelect = document.getElementById("categorySelect");
+    const citySelect = document.getElementById("citySelect");
     const detailModal = document.getElementById("detalleEventoModal");
     const detailTitle = detailModal?.querySelector(".modal-body h3");
     const detailImage = detailModal?.querySelector(".modal-body img");
@@ -20,16 +20,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const buyButtonFromDetail = detailModal?.querySelector(".btn-success");
     const purchaseModal = document.getElementById("compraModal");
     const purchaseForm = purchaseModal?.querySelector("form");
-    const payButton = purchaseModal?.querySelector(".btn.btn-primary.btn-lg");
+    const payButton = purchaseModal?.querySelector(".btn-primary");
     const quantityInput = purchaseForm?.querySelector('input[type="number"]') || null;
     const summaryParagraphs = purchaseModal?.querySelectorAll(".row .col-md-6:first-child p");
 
-    let eventosGlobales = []; // Almacena todos los eventos cargados
+    let eventosGlobales = [];
     let selectedEvent = null;
 
-    // =========================
-    // UTILIDADES
-    // =========================
+    // Utilidades
     function formatPrice(value) {
         return `$${Number(value || 0).toFixed(2)}`;
     }
@@ -50,11 +48,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.error(`Error guardando localStorage: ${key}`, error);
         }
-    }
-
-    function generateTicketCode() {
-        const randomPart = Math.floor(100000 + Math.random() * 900000);
-        return `PAGQR-2026-${randomPart}`;
     }
 
     function getFormData() {
@@ -89,9 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return { valid: true, message: "" };
     }
 
-    // =========================
-    // RENDERIZADO DE TARJETAS
-    // =========================
+    // Renderizado de tarjetas
     function renderEventos(eventos) {
         if (!eventosContainer) return;
         eventosContainer.innerHTML = "";
@@ -109,12 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
         eventos.forEach(ev => {
             const col = document.createElement("div");
             col.className = "col-md-6 col-lg-4";
-            col.dataset.id = ev.id_evento;
-            col.dataset.nombre = (ev.titulo || "").toLowerCase();
-            col.dataset.categoria = (ev.categoria || "").toLowerCase();
-            col.dataset.ciudad = (ev.ciudad || "").toLowerCase();
 
-            // Formatear fecha y hora
             const fechaObj = new Date(ev.fecha_evento);
             const fechaFormateada = fechaObj.toLocaleDateString("es-ES", {
                 day: "numeric", month: "long", year: "numeric"
@@ -139,7 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
 
-            // Asociar evento al botón
             const button = col.querySelector("button");
             button.addEventListener("click", () => {
                 selectedEvent = ev;
@@ -194,25 +179,22 @@ document.addEventListener("DOMContentLoaded", () => {
         summaryParagraphs[3].classList.add("fw-bold");
     }
 
-    // =========================
-    // FILTROS
-    // =========================
+    // Filtros
     function populateFilters(eventos) {
         if (!categorySelect || !citySelect) return;
 
         const categorias = [...new Set(eventos.map(ev => ev.categoria).filter(Boolean))];
         const ciudades = [...new Set(eventos.map(ev => ev.ciudad).filter(Boolean))];
 
-        // Limpiar y agregar opción por defecto
-        categorySelect.innerHTML = '<option selected>Filtrar por categoría</option>';
-        ciudades.forEach(ciudad => {
+        categorySelect.innerHTML = '<option selected>Todas las categorías</option>';
+        categorias.forEach(cat => {
             const option = document.createElement("option");
-            option.value = ciudad;
-            option.textContent = ciudad;
+            option.value = cat;
+            option.textContent = cat;
             categorySelect.appendChild(option);
         });
 
-        citySelect.innerHTML = '<option selected>Filtrar por ciudad</option>';
+        citySelect.innerHTML = '<option selected>Todas las ciudades</option>';
         ciudades.forEach(ciudad => {
             const option = document.createElement("option");
             option.value = ciudad;
@@ -223,24 +205,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function filterEvents() {
         const searchTerm = (searchInput?.value || "").trim().toLowerCase();
-        const selectedCategory = (categorySelect?.value || "").trim().toLowerCase();
-        const selectedCity = (citySelect?.value || "").trim().toLowerCase();
+        const selectedCategory = (categorySelect?.value || "").trim();
+        const selectedCity = (citySelect?.value || "").trim();
 
         const filtered = eventosGlobales.filter(ev => {
             const matchSearch = !searchTerm || ev.titulo?.toLowerCase().includes(searchTerm);
-            const matchCategory = !selectedCategory || selectedCategory === "filtrar por categoría" || ev.categoria?.toLowerCase() === selectedCategory;
-            const matchCity = !selectedCity || selectedCity === "filtrar por ciudad" || ev.ciudad?.toLowerCase() === selectedCity;
+            const matchCategory = !selectedCategory || selectedCategory === "Todas las categorías" || ev.categoria === selectedCategory;
+            const matchCity = !selectedCity || selectedCity === "Todas las ciudades" || ev.ciudad === selectedCity;
             return matchSearch && matchCategory && matchCity;
         });
 
         renderEventos(filtered);
     }
 
-    // =========================
-    // CARGA DE DATOS DESDE API
-    // =========================
+    // Carga de datos
     async function cargarEventos() {
-        // Mostrar spinner de carga (opcional)
         if (eventosContainer) {
             eventosContainer.innerHTML = `
                 <div class="col-12 text-center py-5">
@@ -275,9 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // =========================
-    // COMPRA (pago)
-    // =========================
+    // Compra (pago)
     async function savePurchase() {
         if (!selectedEvent) {
             alert("Primero selecciona un evento.");
@@ -340,26 +317,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // =========================
-    // EVENT LISTENERS
-    // =========================
+    // Event Listeners
     function bindEvents() {
         searchInput?.addEventListener("input", filterEvents);
         categorySelect?.addEventListener("change", filterEvents);
         citySelect?.addEventListener("change", filterEvents);
         buyButtonFromDetail?.addEventListener("click", () => {
-            updatePurchaseSummary();          // Actualiza los datos del resumen
+            updatePurchaseSummary();
             const modal = new bootstrap.Modal(document.getElementById('compraModal'));
-            modal.show();                     // Abre el modal de compra
+            modal.show();
         });
         quantityInput?.addEventListener("input", updatePurchaseSummary);
         quantityInput?.addEventListener("change", updatePurchaseSummary);
         payButton?.addEventListener("click", savePurchase);
     }
 
-    // =========================
-    // ESCAPE HTML (seguridad)
-    // =========================
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, function (m) {
@@ -370,9 +342,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // =========================
-    // INICIALIZACIÓN
-    // =========================
     cargarEventos();
     bindEvents();
 });
