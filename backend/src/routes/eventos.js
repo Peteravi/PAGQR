@@ -10,7 +10,6 @@ const fs = require('fs');
 // =========================
 const uploadDir = path.join(__dirname, '../../../frontend/public/uploads/eventos');
 
-// Crear directorio si no existe
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
     console.log("📁 Directorio creado:", uploadDir);
@@ -76,7 +75,6 @@ router.post('/', upload, async (req, res) => {
             });
         }
 
-        // Validar precio (debe ser número positivo, o 0 por defecto)
         let precioNum = parseFloat(precio);
         if (isNaN(precioNum)) precioNum = 0.00;
 
@@ -152,6 +150,25 @@ router.get('/:id', async (req, res) => {
 });
 
 // =========================
+// 🟡 OBTENER TIPOS DE ENTRADA DE UN EVENTO
+// =========================
+router.get('/:id/tipos', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const [rows] = await db.execute(
+            `SELECT id_tipo_entrada, nombre, precio, stock_disponible, stock_total 
+             FROM tipos_entrada 
+             WHERE id_evento = ? AND estado = 'activo'`,
+            [id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error("❌ ERROR OBTENER TIPOS:", error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// =========================
 // 🟡 EDITAR EVENTO
 // =========================
 router.put('/:id', upload, async (req, res) => {
@@ -173,7 +190,6 @@ router.put('/:id', upload, async (req, res) => {
         let imagenUrl = eventoActual[0]?.imagen_url || null;
 
         if (req.file) {
-            // Eliminar imagen anterior si existe
             if (imagenUrl && imagenUrl.startsWith('/uploads/')) {
                 const oldPath = path.join(__dirname, '../../../frontend/public', imagenUrl);
                 if (fs.existsSync(oldPath)) {

@@ -5,7 +5,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PagQR - Entradas Online</title>
-
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <!-- Bootstrap Icons -->
@@ -16,7 +15,7 @@
 
 <body>
 
-    <!-- NAVBAR con iconos -->
+    <!-- NAVBAR con iconos (sin cambios) -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold" href="#">
@@ -27,32 +26,20 @@
             </button>
             <div class="collapse navbar-collapse" id="menuNavbar">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#">
-                            <i class="bi bi-house-door me-1"></i> Inicio
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/eventos.html">
-                            <i class="bi bi-calendar-event me-1"></i> Eventos
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="bi bi-ticket-perforated me-1"></i> Mis entradas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="bi bi-envelope me-1"></i> Contacto
-                        </a>
+                    <li class="nav-item"><a class="nav-link active" href="#"><i class="bi bi-house-door me-1"></i>
+                            Inicio</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/eventos.html"><i
+                                class="bi bi-calendar-event me-1"></i> Eventos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="mis-entradas.html"><i
+                                class="bi bi-ticket-perforated me-1"></i> Mis entradas</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#"><i class="bi bi-envelope me-1"></i> Contacto</a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- BANNER PRINCIPAL con icono -->
+    <!-- BANNER PRINCIPAL (sin cambios) -->
     <section class="bg-primary text-white py-5 position-relative overflow-hidden">
         <div class="container text-center position-relative z-1">
             <i class="bi bi-ticket-perforated display-1 mb-3 d-block"></i>
@@ -64,7 +51,7 @@
         </div>
     </section>
 
-    <!-- BUSCADOR Y FILTROS con iconos -->
+    <!-- BUSCADOR Y FILTROS (sin cambios) -->
     <section class="py-4 border-bottom bg-white shadow-sm">
         <div class="container">
             <div class="row g-3 align-items-end">
@@ -93,26 +80,22 @@
         </div>
     </section>
 
-    <!-- LISTADO DE EVENTOS (contenedor dinámico) -->
+    <!-- LISTADO DE EVENTOS (contenedor dinámico, sin cambios) -->
     <section id="eventos" class="py-5">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                <h2 class="fw-bold mb-0">
-                    <i class="bi bi-calendar-week me-2 text-primary"></i>Eventos Mas Esperados
-                </h2>
+                <h2 class="fw-bold mb-0"><i class="bi bi-calendar-week me-2 text-primary"></i>Eventos Más Esperados</h2>
             </div>
             <div class="row g-4" id="eventosContainer">
-                <!-- Las tarjetas se generarán dinámicamente con JavaScript -->
                 <div class="col-12 text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando eventos...</span>
-                    </div>
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando
+                            eventos...</span></div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- MODAL DETALLE DEL EVENTO (estructura dinámica) -->
+    <!-- MODAL DETALLE DEL EVENTO (se agrega selector de tipo de entrada) -->
     <div class="modal fade" id="detalleEventoModal" tabindex="-1" aria-labelledby="detalleEventoModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -137,11 +120,15 @@
                                     id="detalleHora"></span></p>
                             <p class="mb-2"><i class="bi bi-geo-alt me-2 text-primary"></i><strong>Lugar:</strong> <span
                                     id="detalleLugar"></span></p>
-                            <p class="mb-2"><i class="bi bi-tag me-2 text-primary"></i><strong>Precio:</strong> <span
-                                    id="detallePrecio"></span></p>
-                            <p class="mb-3"><i
-                                    class="bi bi-text-paragraph me-2 text-primary"></i><strong>Descripción:</strong>
-                                <span id="detalleDescripcion"></span></p>
+                            <!-- Nueva sección: tipos de entrada -->
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold"><i
+                                        class="bi bi-ticket-perforated me-2 text-primary"></i>Tipo de entrada</label>
+                                <select class="form-select" id="detalleTipoEntrada">
+                                    <option value="">Selecciona un tipo</option>
+                                </select>
+                                <small class="text-muted" id="detalleStockInfo">Stock disponible: --</small>
+                            </div>
                             <div class="d-grid">
                                 <button class="btn btn-success btn-lg" id="btnComprarDesdeDetalle">
                                     <i class="bi bi-cart-plus me-2"></i>Comprar entrada
@@ -154,7 +141,7 @@
         </div>
     </div>
 
-    <!-- MODAL COMPRA con iconos mejorados -->
+    <!-- MODAL COMPRA (se agrega selector de tipo y resumen de stock) -->
     <div class="modal fade" id="compraModal" tabindex="-1" aria-labelledby="compraModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
@@ -206,6 +193,15 @@
                                 <input type="text" class="form-control" id="direccion"
                                     placeholder="Ingrese su dirección" required>
                             </div>
+                            <!-- Nueva sección: tipo de entrada en el formulario de compra -->
+                            <div class="col-12">
+                                <label class="form-label fw-semibold"><i class="bi bi-ticket-perforated me-1"></i> Tipo
+                                    de entrada</label>
+                                <select class="form-select" id="compraTipoEntrada" required>
+                                    <option value="">Selecciona un tipo</option>
+                                </select>
+                                <small class="text-muted" id="compraStockInfo">Stock disponible: --</small>
+                            </div>
                         </div>
 
                         <hr class="my-4">
@@ -215,6 +211,8 @@
                                 <h6 class="fw-bold"><i class="bi bi-receipt me-2"></i>Resumen de compra</h6>
                                 <p class="mb-1"><i class="bi bi-calendar-event me-2 text-muted"></i><span
                                         id="resumenEvento">Evento: --</span></p>
+                                <p class="mb-1"><i class="bi bi-ticket-perforated me-2 text-muted"></i><span
+                                        id="resumenTipo">Tipo: --</span></p>
                                 <p class="mb-1"><i class="bi bi-123 me-2 text-muted"></i><span
                                         id="resumenCantidad">Cantidad: 1</span></p>
                                 <p class="mb-1"><i class="bi bi-tag me-2 text-muted"></i><span
@@ -236,19 +234,17 @@
         </div>
     </div>
 
-    <!-- FOOTER con iconos -->
+    <!-- FOOTER (sin cambios) -->
     <footer class="bg-dark text-white py-4 mt-5">
         <div class="container text-center">
-            <p class="mb-0">
-                <i class="bi bi-c-circle me-1"></i> 2026 PagQR - Plataforma de venta de entradas online
-                <i class="bi bi-qr-code ms-2"></i>
-            </p>
+            <p class="mb-0"><i class="bi bi-c-circle me-1"></i> 2026 PagQR - Plataforma de venta de entradas online <i
+                    class="bi bi-qr-code ms-2"></i></p>
         </div>
     </footer>
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- JavaScript personalizado -->
+    <!-- JavaScript personalizado (debe actualizarse para manejar los nuevos elementos) -->
     <script src="assets/js/main.js"></script>
 </body>
 

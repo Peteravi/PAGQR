@@ -1,0 +1,363 @@
+/* ===========================================
+   Estilos específicos para la página de ventas
+   Basado en la nueva paleta de colores del admin
+   =========================================== */
+
+/* Reutilizamos las variables del admin.css */
+:root {
+    --primary-color: #4361ee;
+    --primary-hover: #3a56d4;
+    --secondary-color: #7209b7;
+    --success-color: #2ecc71;
+    --warning-color: #f39c12;
+    --info-color: #3498db;
+    --danger-color: #e74c3c;
+    --light-bg: #f8faff;
+    --white: #ffffff;
+    --dark-text: #2c3e50;
+    --muted-text: #6c757d;
+    --border-color: #e9ecef;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.12);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tarjeta del gráfico */
+.chart-card {
+    background: var(--white);
+    border-radius: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+    overflow: hidden;
+    position: relative;
+}
+
+.chart-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+}
+
+.chart-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.chart-card:hover::before {
+    transform: scaleX(1);
+}
+
+.chart-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--dark-text);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border-color);
+    position: relative;
+}
+
+.chart-card h3 i {
+    color: var(--primary-color);
+    font-size: 1.35rem;
+}
+
+.chart-card canvas {
+    max-height: 300px;
+    width: 100%;
+    transition: transform 0.3s ease;
+}
+
+.chart-card:hover canvas {
+    transform: scale(1.01);
+}
+
+/* Tarjetas de tabla */
+.table-card {
+    background: var(--white);
+    border-radius: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.table-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    transform: translateX(-100%);
+    transition: transform 0.4s ease;
+}
+
+.table-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.table-card:hover::after {
+    transform: translateX(0);
+}
+
+.table-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--dark-text);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.table-card h3 i {
+    color: var(--primary-color);
+    font-size: 1.35rem;
+}
+
+/* Tablas dentro de .table-card */
+.table-card .table {
+    margin-bottom: 0;
+}
+
+.table-card .table thead {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-radius: 0.75rem;
+}
+
+.table-card .table thead th {
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    padding: 0.875rem;
+    border: none;
+}
+
+.table-card .table tbody td {
+    padding: 0.875rem;
+    vertical-align: middle;
+    font-size: 0.875rem;
+    color: var(--dark-text);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table-card .table tbody tr {
+    transition: var(--transition);
+}
+
+.table-card .table tbody tr:hover {
+    background: rgba(67, 97, 238, 0.03);
+    transform: scale(1.01);
+    box-shadow: var(--shadow-sm);
+}
+
+.table-card .table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Botón de ver detalle */
+.btn-link-sm {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 0.813rem;
+    font-weight: 500;
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+    transition: var(--transition);
+    border-radius: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.btn-link-sm:hover {
+    background: rgba(67, 97, 238, 0.1);
+    color: var(--primary-hover);
+    transform: translateX(2px);
+}
+
+.btn-link-sm:active {
+    transform: scale(0.98);
+}
+
+/* Animaciones para filas (usadas en admin-ventas.js) */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-row {
+    animation: fadeInUp 0.3s ease forwards;
+}
+
+/* Ajustes para el contenedor de gráfico en móviles */
+@media (max-width: 992px) {
+
+    .chart-card canvas,
+    .table-card canvas {
+        max-height: 250px;
+    }
+
+    .chart-card h3,
+    .table-card h3 {
+        font-size: 1.125rem;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .chart-card,
+    .table-card {
+        padding: 1rem;
+    }
+
+    .chart-card h3,
+    .table-card h3 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .chart-card canvas {
+        max-height: 200px;
+    }
+
+    .table-card .table thead th,
+    .table-card .table tbody td {
+        padding: 0.625rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .btn-link-sm {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+
+    .chart-card,
+    .table-card {
+        border-radius: 1rem;
+    }
+
+    .chart-card canvas {
+        max-height: 180px;
+    }
+
+    .table-card .table {
+        font-size: 0.7rem;
+    }
+
+    .table-card .table thead th,
+    .table-card .table tbody td {
+        padding: 0.5rem 0.25rem;
+    }
+}
+
+/* Estilo especial para la tabla de stock (puede tener muchos datos) */
+#tablaStock .badge {
+    white-space: nowrap;
+}
+
+/* Mejora en la visualización de los números en tarjetas KPI (ya definidas en admin.css, pero aseguramos consistencia) */
+.stats-card {
+    transition: var(--transition);
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Ajustes para los íconos en las tarjetas */
+.stats-icon i {
+    font-size: 1.75rem;
+}
+
+/* Responsive para la grilla de tarjetas KPI */
+@media (max-width: 992px) {
+    .stats-card .stats-number {
+        font-size: 1.5rem;
+    }
+
+    .stats-card .stats-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .stats-card .stats-icon i {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .stats-card {
+        flex-direction: row;
+        text-align: left;
+        gap: 0.75rem;
+    }
+
+    .stats-card .stats-icon {
+        width: 44px;
+        height: 44px;
+    }
+
+    .stats-card .stats-number {
+        font-size: 1.25rem;
+    }
+}
+
+/* Asegurar que el toast no se superponga con el contenido */
+.toast-container {
+    z-index: 9999;
+}
+
+/* Scrollbar personalizado para tablas con mucho contenido */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-hover);
+}

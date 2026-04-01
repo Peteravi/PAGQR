@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Ventas - PagQR</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- CSS personalizado del admin (comparte estilos de sidebar, tarjetas, etc.) -->
+    <link rel="stylesheet" href="/admin/assets/css/admin.css">
+    <!-- CSS específico para la página de ventas -->
+    <link rel="stylesheet" href="/admin/assets/css/ventas.css">
+</head>
+
+<body>
+
+    <!-- Loading Overlay (mismo que admin) -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- Sidebar (idéntico al admin.html) -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar">
+                <div class="position-sticky pt-4">
+                    <div class="sidebar-header text-center mb-4">
+                        <i class="bi bi-qr-code-scan brand-icon"></i>
+                        <h2 class="brand-title mt-2">PagQR</h2>
+                        <p class="brand-subtitle">Panel Admin</p>
+                    </div>
+                    <ul class="nav flex-column px-2">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin">
+                                <i class="bi bi-calendar-event me-2"></i>
+                                <span>Eventos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/ventas">
+                                <i class="bi bi-graph-up me-2"></i>
+                                <span>Ventas</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="bi bi-people me-2"></i>
+                                <span>Asistentes</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <!-- Cabecera -->
+                <div class="section-header">
+                    <div>
+                        <h1 class="section-title">
+                            <i class="bi bi-graph-up me-2"></i>Ventas
+                        </h1>
+                        <p class="section-subtitle">Resumen de ventas, órdenes y stock</p>
+                    </div>
+                </div>
+
+                <!-- KPIs (tarjetas de estadísticas) -->
+                <div class="row mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-primary-soft">
+                                <i class="bi bi-currency-dollar text-primary"></i>
+                            </div>
+                            <div class="stats-info">
+                                <h3 class="stats-number" id="totalVendido">$0</h3>
+                                <p class="stats-label">Total vendido</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-success-soft">
+                                <i class="bi bi-cart-check text-success"></i>
+                            </div>
+                            <div class="stats-info">
+                                <h3 class="stats-number" id="totalOrdenes">0</h3>
+                                <p class="stats-label">Órdenes totales</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-info-soft">
+                                <i class="bi bi-cash-stack text-info"></i>
+                            </div>
+                            <div class="stats-info">
+                                <h3 class="stats-number" id="ingresosReales">$0</h3>
+                                <p class="stats-label">Ingresos reales</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-danger-soft">
+                                <i class="bi bi-x-circle text-danger"></i>
+                            </div>
+                            <div class="stats-info">
+                                <h3 class="stats-number" id="ventasFallidas">0</h3>
+                                <p class="stats-label">Ventas fallidas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico de ventas diarias -->
+                <div class="chart-card mb-4">
+                    <h3><i class="bi bi-calendar-week me-2"></i>Ventas por día</h3>
+                    <canvas id="graficoVentas" height="150"></canvas>
+                </div>
+
+                <!-- Tablas en dos columnas -->
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="table-card">
+                            <h3><i class="bi bi-trophy me-2"></i>Ventas por Evento</h3>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Evento</th>
+                                            <th>Entradas Vendidas</th>
+                                            <th>Total Generado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaVentasEvento">
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="table-card">
+                            <h3><i class="bi bi-box-seam me-2"></i>Control de Stock</h3>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Evento</th>
+                                            <th>Tipo Entrada</th>
+                                            <th>Stock Total</th>
+                                            <th>Disponible</th>
+                                            <th>Vendidos</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaStock">
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="table-card">
+                            <h3><i class="bi bi-receipt me-2"></i>Órdenes</h3>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Cliente</th>
+                                            <th>Total</th>
+                                            <th>Estado</th>
+                                            <th>Método Pago</th>
+                                            <th>Fecha</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaOrdenes">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="table-card">
+                            <h3><i class="bi bi-card-list me-2"></i>Detalle de Orden</h3>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Evento</th>
+                                            <th>Tipo Entrada</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio</th>
+                                            <th>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaDetalleOrden">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">Selecciona una orden para ver
+                                                detalles</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="table-card">
+                            <h3><i class="bi bi-credit-card me-2"></i>Pagos</h3>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Código Orden</th>
+                                            <th>Proveedor</th>
+                                            <th>Estado</th>
+                                            <th>Monto</th>
+                                            <th>Fecha Pago</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaPagos">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast (mismo que admin) -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999">
+        <div id="toastNotification" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi me-2" id="toastIcon"></i>
+                <strong class="me-auto" id="toastTitle">Notificación</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/admin/assets/js/admin-ventas.js"></script>
+</body>
+
+</html>

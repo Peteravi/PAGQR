@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     // Configuración
     const API_EVENTOS = "http://localhost:3000/api/eventos";
+    const API_ORDENES = "http://localhost:3000/api/ordenes";
     const STORAGE_KEYS = {
         currentEvent: "pagqr_current_event",
         lastPurchase: "pagqr_last_purchase",
@@ -14,18 +15,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const categorySelect = document.querySelectorAll('section.border-bottom select')[0];
     const citySelect = document.querySelectorAll('section.border-bottom select')[1];
     const detailModal = document.getElementById("detalleEventoModal");
-    const detailTitle = detailModal?.querySelector(".modal-body h3");
-    const detailImage = detailModal?.querySelector(".modal-body img");
-    const detailParagraphs = detailModal?.querySelectorAll(".modal-body .col-md-6 p");
-    const buyButtonFromDetail = detailModal?.querySelector(".btn-success");
+    const detailTitle = document.getElementById("detalleTitulo");
+    const detailImage = document.getElementById("detalleImagen");
+    const detalleFecha = document.getElementById("detalleFecha");
+    const detalleHora = document.getElementById("detalleHora");
+    const detalleLugar = document.getElementById("detalleLugar");
+    const detalleDescripcion = document.getElementById("detalleDescripcion");
+    const buyButtonFromDetail = document.getElementById("btnComprarDesdeDetalle");
     const purchaseModal = document.getElementById("compraModal");
-    const purchaseForm = purchaseModal?.querySelector("form");
-    const payButton = purchaseModal?.querySelector(".btn.btn-primary.btn-lg");
-    const quantityInput = purchaseForm?.querySelector('input[type="number"]') || null;
-    const summaryParagraphs = purchaseModal?.querySelectorAll(".row .col-md-6:first-child p");
+    const purchaseForm = document.getElementById("compraForm");
+    const payButton = document.getElementById("btnPagarPayPhone");
+    const quantityInput = document.getElementById("cantidad");
+    const summaryEvento = document.getElementById("resumenEvento");
+    const summaryTipo = document.getElementById("resumenTipo");
+    const summaryCantidad = document.getElementById("resumenCantidad");
+    const summaryPrecioUnitario = document.getElementById("resumenPrecioUnitario");
+    const summaryTotal = document.getElementById("resumenTotal");
+    const detalleTipoSelect = document.getElementById("detalleTipoEntrada");
+    const compraTipoSelect = document.getElementById("compraTipoEntrada");
+    const detalleStockInfo = document.getElementById("detalleStockInfo");
+    const compraStockInfo = document.getElementById("compraStockInfo");
 
-    let eventosGlobales = []; // Almacena todos los eventos cargados
+    let eventosGlobales = [];
     let selectedEvent = null;
+    let tiposCache = [];
 
     // =========================
     // UTILIDADES
@@ -50,11 +63,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.error(`Error guardando localStorage: ${key}`, error);
         }
-    }
-
-    function generateTicketCode() {
-        const randomPart = Math.floor(100000 + Math.random() * 900000);
-        return `PAGQR-2026-${randomPart}`;
     }
 
     function getFormData() {
@@ -89,6 +97,50 @@ document.addEventListener("DOMContentLoaded", () => {
         return { valid: true, message: "" };
     }
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function (m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // =========================
+    // CARGAR TIPOS DE ENTRADA
+    // =========================
+    async function cargarTipos(eventoId) {
+        try {
+            const response = await fetch(`${API_EVENTOS}/${eventoId}/tipos`);
+            if (!response.ok) throw new Error("Error al cargar tipos");
+            const tipos = await response.json();
+            tiposCache = tipos;
+            const optionsHtml = tipos.map(tipo => {
+                const disabled = tipo.stock_disponible === 0 ? "disabled" : "";
+                return `<option value="${tipo.id_tipo_entrada}" data-precio="${tipo.precio}" data-stock="${tipo.stock_disponible}" ${disabled}>
+                            ${tipo.nombre} - ${formatPrice(tipo.precio)} (${tipo.stock_disponible} disponibles)
+                        </option>`;
+            }).join("");
+            if (detalleTipoSelect) detalleTipoSelect.innerHTML = `<option value="">Selecciona un tipo</option>${optionsHtml}`;
+            if (compraTipoSelect) compraTipoSelect.innerHTML = `<option value="">Selecciona un tipo</option>${optionsHtml}`;
+        } catch (error) {
+            console.error("Error cargando tipos:", error);
+        }
+    }
+
+    function actualizarInfoTipo(select, stockInfoSpan) {
+        const selectedOption = select.options[select.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            if (stockInfoSpan) stockInfoSpan.textContent = "Stock disponible: --";
+            return null;
+        }
+        const stock = selectedOption.getAttribute("data-stock");
+        const precio = selectedOption.getAttribute("data-precio");
+        if (stockInfoSpan) stockInfoSpan.textContent = `Stock disponible: ${stock}`;
+        return { id: selectedOption.value, precio: parseFloat(precio), stock: parseInt(stock) };
+    }
+
     // =========================
     // RENDERIZADO DE TARJETAS
     // =========================
@@ -109,12 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         eventos.forEach(ev => {
             const col = document.createElement("div");
             col.className = "col-md-6 col-lg-4";
-            col.dataset.id = ev.id_evento;
-            col.dataset.nombre = (ev.titulo || "").toLowerCase();
-            col.dataset.categoria = (ev.categoria || "").toLowerCase();
-            col.dataset.ciudad = (ev.ciudad || "").toLowerCase();
 
-            // Formatear fecha y hora
             const fechaObj = new Date(ev.fecha_evento);
             const fechaFormateada = fechaObj.toLocaleDateString("es-ES", {
                 day: "numeric", month: "long", year: "numeric"
@@ -131,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <p class="card-text mb-1"><strong>Fecha:</strong> ${fechaFormateada}</p>
                         <p class="card-text mb-1"><strong>Hora:</strong> ${horaFormateada}</p>
                         <p class="card-text mb-1"><strong>Lugar:</strong> ${escapeHtml(ev.lugar)}</p>
-                        <p class="card-text mb-3"><strong>Precio:</strong> ${formatPrice(ev.precio || 0)}</p>
+                        <p class="card-text mb-3"><strong>Desde:</strong> ${formatPrice(ev.precio || 0)}</p>
                         <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#detalleEventoModal">
                             Ver detalle
                         </button>
@@ -139,10 +186,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
 
-            // Asociar evento al botón
             const button = col.querySelector("button");
-            button.addEventListener("click", () => {
+            button.addEventListener("click", async () => {
                 selectedEvent = ev;
+                await cargarTipos(ev.id_evento);
                 updateDetailModal(ev);
             });
 
@@ -171,27 +218,35 @@ document.addEventListener("DOMContentLoaded", () => {
             detailImage.alt = evento.titulo;
         }
 
-        if (detailParagraphs && detailParagraphs.length >= 5) {
-            detailParagraphs[0].innerHTML = `<strong>Fecha:</strong> ${fechaFormateada}`;
-            detailParagraphs[1].innerHTML = `<strong>Hora:</strong> ${horaFormateada}`;
-            detailParagraphs[2].innerHTML = `<strong>Lugar:</strong> ${escapeHtml(lugarCompleto)}`;
-            detailParagraphs[3].innerHTML = `<strong>Precio:</strong> ${formatPrice(evento.precio || 0)}`;
-            detailParagraphs[4].innerHTML = `<strong>Descripción:</strong> ${escapeHtml(evento.descripcion || "Sin descripción")}`;
-        }
+        // Asignar valores usando IDs específicos
+        if (detalleFecha) detalleFecha.textContent = fechaFormateada;
+        if (detalleHora) detalleHora.textContent = horaFormateada;
+        if (detalleLugar) detalleLugar.textContent = escapeHtml(lugarCompleto);
+        if (detalleDescripcion) detalleDescripcion.textContent = escapeHtml(evento.descripcion || "Sin descripción");
 
-        updatePurchaseSummary();
+        // También actualizar el precio en el detalle (si hay un elemento)
+        const detallePrecio = document.getElementById("detallePrecio");
+        if (detallePrecio) detallePrecio.textContent = formatPrice(evento.precio || 0);
     }
 
     function updatePurchaseSummary() {
-        if (!selectedEvent || !summaryParagraphs || summaryParagraphs.length < 4) return;
+        const tipoId = compraTipoSelect?.value;
+        const tipo = tiposCache.find(t => t.id_tipo_entrada == tipoId);
         const quantity = Math.max(1, Number(quantityInput?.value || 1));
-        const total = (selectedEvent.precio || 0) * quantity;
-
-        summaryParagraphs[0].textContent = `Evento: ${selectedEvent.titulo}`;
-        summaryParagraphs[1].textContent = `Cantidad: ${quantity}`;
-        summaryParagraphs[2].textContent = `Precio unitario: ${formatPrice(selectedEvent.precio || 0)}`;
-        summaryParagraphs[3].textContent = `Total: ${formatPrice(total)}`;
-        summaryParagraphs[3].classList.add("fw-bold");
+        if (!tipo) {
+            if (summaryEvento) summaryEvento.textContent = `Evento: ${selectedEvent?.titulo || "--"}`;
+            if (summaryTipo) summaryTipo.textContent = `Tipo: --`;
+            if (summaryPrecioUnitario) summaryPrecioUnitario.textContent = `Precio unitario: --`;
+            if (summaryTotal) summaryTotal.textContent = `Total: --`;
+            return;
+        }
+        const total = tipo.precio * quantity;
+        if (summaryEvento) summaryEvento.textContent = `Evento: ${selectedEvent?.titulo || "--"}`;
+        if (summaryTipo) summaryTipo.textContent = `Tipo: ${tipo.nombre}`;
+        if (summaryCantidad) summaryCantidad.textContent = `Cantidad: ${quantity}`;
+        if (summaryPrecioUnitario) summaryPrecioUnitario.textContent = `Precio unitario: ${formatPrice(tipo.precio)}`;
+        if (summaryTotal) summaryTotal.textContent = `Total: ${formatPrice(total)}`;
+        if (summaryTotal) summaryTotal.classList.add("fw-bold");
     }
 
     // =========================
@@ -199,16 +254,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // =========================
     function populateFilters(eventos) {
         if (!categorySelect || !citySelect) return;
-
         const categorias = [...new Set(eventos.map(ev => ev.categoria).filter(Boolean))];
         const ciudades = [...new Set(eventos.map(ev => ev.ciudad).filter(Boolean))];
 
-        // Limpiar y agregar opción por defecto
         categorySelect.innerHTML = '<option selected>Filtrar por categoría</option>';
-        ciudades.forEach(ciudad => {
+        categorias.forEach(cat => {
             const option = document.createElement("option");
-            option.value = ciudad;
-            option.textContent = ciudad;
+            option.value = cat;
+            option.textContent = cat;
             categorySelect.appendChild(option);
         });
 
@@ -237,10 +290,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =========================
-    // CARGA DE DATOS DESDE API
+    // CARGA DE DATOS
     // =========================
     async function cargarEventos() {
-        // Mostrar spinner de carga (opcional)
         if (eventosContainer) {
             eventosContainer.innerHTML = `
                 <div class="col-12 text-center py-5">
@@ -261,6 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderEventos(eventos);
             if (eventos.length > 0 && !selectedEvent) {
                 selectedEvent = eventos[0];
+                await cargarTipos(selectedEvent.id_evento);
                 updateDetailModal(eventos[0]);
             }
         } catch (error) {
@@ -276,11 +329,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =========================
-    // COMPRA (pago)
+    // COMPRA CON STOCK REAL
     // =========================
     async function savePurchase() {
         if (!selectedEvent) {
             alert("Primero selecciona un evento.");
+            return;
+        }
+
+        const tipoId = compraTipoSelect?.value;
+        if (!tipoId) {
+            alert("Selecciona un tipo de entrada.");
             return;
         }
 
@@ -291,50 +350,75 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const datosParaBackend = {
-            cantidad: formData.cantidad,
-            precioUnitario: selectedEvent.precio,
-            cliente: formData,
-            evento: selectedEvent
+        const cantidad = formData.cantidad;
+        const tipo = tiposCache.find(t => t.id_tipo_entrada == tipoId);
+        if (!tipo) {
+            alert("Tipo de entrada no válido.");
+            return;
+        }
+        if (tipo.stock_disponible < cantidad) {
+            alert(`Stock insuficiente. Solo quedan ${tipo.stock_disponible} entradas de este tipo.`);
+            return;
+        }
+
+        const datosOrden = {
+            id_evento: selectedEvent.id_evento,
+            id_tipo_entrada: tipoId,
+            cantidad,
+            cliente: {
+                nombres: formData.nombres,
+                apellidos: formData.apellidos,
+                email: formData.email,
+                telefono: formData.telefono,
+                documento: formData.documento,
+                direccion: formData.direccion
+            }
         };
 
         const botonOriginal = payButton.textContent;
-        payButton.textContent = "Conectando con PayPhone...";
+        payButton.textContent = "Creando orden...";
         payButton.disabled = true;
 
         try {
-            const respuesta = await fetch('/api/pagos/generar-link', {
+            // 1. Crear orden
+            const ordenResponse = await fetch(API_ORDENES, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datosParaBackend)
+                body: JSON.stringify(datosOrden)
             });
+            const ordenData = await ordenResponse.json();
+            if (!ordenData.ok) throw new Error(ordenData.message);
 
-            const data = await respuesta.json();
+            // 2. Generar link de pago con el id_orden
+            payButton.textContent = "Conectando con PayPhone...";
+            const pagoResponse = await fetch('/api/pagos/generar-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_orden: ordenData.id_orden })
+            });
+            const pagoData = await pagoResponse.json();
+            if (!pagoData.ok) throw new Error(pagoData.message);
 
-            if (data.ok && data.payUrl) {
-                const purchaseData = {
-                    idCompra: data.codigoOrden,
-                    fechaCompra: new Date().toISOString(),
-                    estadoPago: "Pendiente",
-                    metodoPago: "PayPhone",
-                    evento: selectedEvent,
-                    comprador: formData,
-                    resumen: {
-                        cantidad: formData.cantidad,
-                        precioUnitario: selectedEvent.precio,
-                        total: selectedEvent.precio * formData.cantidad
-                    }
-                };
-                saveJSON(STORAGE_KEYS.lastPurchase, purchaseData);
-                window.location.href = data.payUrl;
-            } else {
-                alert('Error al generar el link: ' + (data.message || 'Desconocido'));
-                payButton.textContent = botonOriginal;
-                payButton.disabled = false;
-            }
+            // 3. Guardar en localStorage para mostrar en confirmación
+            const purchaseData = {
+                id_orden: ordenData.id_orden,
+                codigo_orden: ordenData.codigo_orden,
+                evento: selectedEvent,
+                tipo: tipo,
+                comprador: datosOrden.cliente,
+                resumen: {
+                    cantidad,
+                    precioUnitario: tipo.precio,
+                    total: ordenData.total
+                }
+            };
+            saveJSON(STORAGE_KEYS.lastPurchase, purchaseData);
+
+            // 4. Redirigir a PayPhone
+            window.location.href = pagoData.payUrl;
         } catch (error) {
-            console.error('Error de conexión:', error);
-            alert('Hubo un problema al intentar conectar con el servidor.');
+            console.error('Error:', error);
+            alert('Error al procesar la compra: ' + error.message);
             payButton.textContent = botonOriginal;
             payButton.disabled = false;
         }
@@ -348,31 +432,35 @@ document.addEventListener("DOMContentLoaded", () => {
         categorySelect?.addEventListener("change", filterEvents);
         citySelect?.addEventListener("change", filterEvents);
         buyButtonFromDetail?.addEventListener("click", () => {
-            updatePurchaseSummary();          // Actualiza los datos del resumen
+            const tipoId = detalleTipoSelect?.value;
+            if (compraTipoSelect && tipoId) {
+                compraTipoSelect.value = tipoId;
+            }
+            updatePurchaseSummary();
             const modal = new bootstrap.Modal(document.getElementById('compraModal'));
-            modal.show();                     // Abre el modal de compra
+            modal.show();
         });
         quantityInput?.addEventListener("input", updatePurchaseSummary);
         quantityInput?.addEventListener("change", updatePurchaseSummary);
         payButton?.addEventListener("click", savePurchase);
+        if (detalleTipoSelect) {
+            detalleTipoSelect.addEventListener("change", () => {
+                const tipoInfo = actualizarInfoTipo(detalleTipoSelect, detalleStockInfo);
+                if (compraTipoSelect && tipoInfo) {
+                    compraTipoSelect.value = tipoInfo.id;
+                    updatePurchaseSummary();
+                }
+            });
+        }
+        if (compraTipoSelect) {
+            compraTipoSelect.addEventListener("change", () => {
+                actualizarInfoTipo(compraTipoSelect, compraStockInfo);
+                updatePurchaseSummary();
+            });
+        }
     }
 
-    // =========================
-    // ESCAPE HTML (seguridad)
-    // =========================
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function (m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-
-    // =========================
-    // INICIALIZACIÓN
-    // =========================
+    // Inicialización
     cargarEventos();
     bindEvents();
 });
