@@ -22,13 +22,11 @@ CREATE TABLE IF NOT EXISTS eventos (
     fecha_fin_evento DATETIME NULL,
     imagen_url VARCHAR(255),
     organizador VARCHAR(150),
+    precio DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     estado ENUM('borrador', 'publicado', 'agotado', 'cancelado', 'finalizado') NOT NULL DEFAULT 'borrador',
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
-
-
-ALTER TABLE eventos ADD COLUMN precio DECIMAL(10,2) DEFAULT 0.00 NOT NULL;
 
 CREATE TABLE IF NOT EXISTS tipos_entrada (
     id_tipo_entrada INT AUTO_INCREMENT PRIMARY KEY,

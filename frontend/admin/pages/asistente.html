@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PagQR - Asistentes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/assets/css/asistente.css">
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- SIDEBAR -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar">
+                <div class="position-sticky pt-4">
+                    <div class="sidebar-header text-center mb-4">
+                        <i class="bi bi-qr-code-scan brand-icon"></i>
+                        <h2 class="brand-title mt-2">PagQR</h2>
+                        <p class="brand-subtitle">Panel Admin</p>
+                    </div>
+
+                    <ul class="nav flex-column px-2">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin">
+                                <i class="bi bi-calendar-event me-2"></i>
+                                <span>Eventos</span>
+                                <span class="badge bg-primary ms-auto" id="badgeEventos">0</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link" href="/ventas">
+                                <i class="bi bi-graph-up me-2"></i>
+                                <span>Ventas</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/asistentes">
+                                <i class="bi bi-people me-2"></i>
+                                <span>Asistentes</span>
+                                <span class="badge bg-info ms-auto" id="badgeAsistentes">0</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- CONTENIDO -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content py-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h1 class="section-title mb-1">
+                            <i class="bi bi-people me-2"></i>Asistentes
+                        </h1>
+                        <p class="section-subtitle mb-0">Lista y validación de asistentes registrados</p>
+                    </div>
+
+                    <button class="btn btn-success" id="btnDescargarAsistentesCsv" type="button">
+                        <i class="bi bi-download me-2"></i>Descargar CSV
+                    </button>
+                </div>
+
+                <!-- RESUMEN -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">Total asistentes</div>
+                                <div class="fs-3 fw-bold" id="asistentesTotal">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">Entradas usadas</div>
+                                <div class="fs-3 fw-bold" id="asistentesUsadas">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">Pendientes</div>
+                                <div class="fs-3 fw-bold" id="asistentesPendientes">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">Canceladas</div>
+                                <div class="fs-3 fw-bold" id="asistentesCanceladas">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VALIDACIÓN MANUAL -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <h5 class="mb-3">Validación manual</h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <input type="text" id="codigoValidacionManual" class="form-control"
+                                    placeholder="Código de entrada">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" id="puntoAccesoManual" class="form-control"
+                                    placeholder="Punto de acceso">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" id="validadoPorManual" class="form-control"
+                                    placeholder="Validado por" value="Admin">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary w-100" id="btnValidarManual" type="button">
+                                    <i class="bi bi-check-circle me-1"></i>Validar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTROS -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <input type="text" id="busquedaAsistentes" class="form-control"
+                                    placeholder="Buscar por nombre, email, cédula o evento">
+                            </div>
+
+                            <div class="col-md-3">
+                                <select id="filtroEventoAsistentes" class="form-select">
+                                    <option value="todos">Todos los eventos</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <select id="filtroEstadoAsistentes" class="form-select">
+                                    <option value="todos">Todos los estados</option>
+                                    <option value="generada">Generada</option>
+                                    <option value="enviada">Enviada</option>
+                                    <option value="usada">Usada</option>
+                                    <option value="cancelada">Cancelada</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <button class="btn btn-outline-secondary w-100" id="btnRefrescarAsistentes"
+                                    type="button">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Recargar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLA -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tablaAsistentes">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Asistente</th>
+                                        <th>Evento</th>
+                                        <th>Tipo Entrada</th>
+                                        <th>Estado</th>
+                                        <th>Fecha Evento</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            Cargando asistentes...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- PAGINACIÓN -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                            <div class="text-muted small" id="asistentesPaginacionInfo">
+                                Mostrando 0 - 0 de 0 registros
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" id="btnAsistentesPrev" type="button">
+                                    <i class="bi bi-chevron-left"></i> Anterior
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="btnAsistentesNext" type="button">
+                                    Siguiente <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+        <div id="toastNotification" class="toast align-items-center text-bg-primary border-0" role="alert"
+            aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage">Mensaje</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                    aria-label="Cerrar"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function mostrarLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (!overlay) return;
+            overlay.style.display = show ? 'flex' : 'none';
+        }
+
+        function mostrarToast(titulo, mensaje, tipo = 'info') {
+            const toastEl = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMessage');
+            if (!toastEl || !toastMsg) return;
+
+            toastMsg.textContent = `${titulo}: ${mensaje}`;
+            toastEl.className = 'toast align-items-center border-0';
+
+            if (tipo === 'success') toastEl.classList.add('text-bg-success');
+            else if (tipo === 'error') toastEl.classList.add('text-bg-danger');
+            else if (tipo === 'warning') toastEl.classList.add('text-bg-warning');
+            else toastEl.classList.add('text-bg-primary');
+
+            const toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+            toast.show();
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/admin/assets/js/asistentes.js"></script>
+</body>
+
+</html>

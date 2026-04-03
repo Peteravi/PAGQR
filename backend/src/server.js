@@ -1,4 +1,4 @@
-require('dotenv').config(); 
+require('dotenv').config();
 
 const app = require('./app');
 const pool = require('./config/db');
@@ -8,6 +8,8 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
+    await initDatabase(pool);
+
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     });

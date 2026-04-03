@@ -1,35 +1,34 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const API_ENTRADAS = "/api/entradas";
     const STORAGE_KEYS = {
-        purchases: "pagqr_purchases",
         currentTicket: "pagqr_current_ticket"
     };
-
-    function safeParseJSON(key, fallback = []) {
-        try {
-            const raw = localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
-        } catch (error) {
-            console.error(`Error leyendo localStorage: ${key}`, error);
-            return fallback;
-        }
-    }
-
-    const allPurchases = safeParseJSON(STORAGE_KEYS.purchases, []);
 
     const emailInput = document.getElementById("correo");
     const docInput = document.getElementById("documento");
     const searchButton = document.querySelector(".button-group .btn-main");
-
     const resultHeaderCount = document.querySelector(".result-header span");
     const ticketsGrid = document.querySelector(".tickets-grid");
     const qrModal = document.getElementById("qrModal");
 
-    function saveCurrentTicket(purchase) {
-        try {
-            localStorage.setItem(STORAGE_KEYS.currentTicket, JSON.stringify(purchase));
-        } catch (error) {
-            console.error("Error guardando ticket actual", error);
-        }
+    function formatDateTime(value) {
+        if (!value) return { fecha: "No disponible", hora: "No disponible" };
+        const date = new Date(value);
+        return {
+            fecha: date.toLocaleDateString("es-EC", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric"
+            }),
+            hora: date.toLocaleTimeString("es-EC", {
+                hour: "2-digit",
+                minute: "2-digit"
+            })
+        };
+    }
+
+    function saveCurrentTicket(ticket) {
+        localStorage.setItem(STORAGE_KEYS.currentTicket, JSON.stringify(ticket));
     }
 
     function updateResultCount(count) {
@@ -38,53 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function createTicketCard(purchase) {
-        const article = document.createElement("article");
-        article.className = "ticket-card";
-
-        article.innerHTML = `
-      <div class="ticket-top">
-        <span class="badge-valid">${purchase.estadoPago === "Pagado" ? "Válido" : "Pendiente"}</span>
-        <span class="ticket-number">#${purchase.ticket?.codigo || "SIN-CODIGO"}</span>
-      </div>
-
-      <h3>${purchase.evento?.nombre || "Evento no disponible"}</h3>
-
-      <div class="ticket-info">
-        <p><strong>Fecha:</strong> ${purchase.evento?.fecha || "No disponible"}</p>
-        <p><strong>Hora:</strong> ${purchase.evento?.hora || "No disponible"}</p>
-        <p><strong>Lugar:</strong> ${purchase.evento?.lugarCompleto || "No disponible"}</p>
-        <p><strong>Comprador:</strong> ${(purchase.comprador?.nombres || "")} ${(purchase.comprador?.apellidos || "")}</p>
-      </div>
-
-      <div class="ticket-actions">
-        <button class="btn-main btn-open-qr">Ver QR</button>
-        <a href="ticket.html" class="btn-secondary-custom btn-open-ticket">Ver ticket</a>
-      </div>
-    `;
-
-        const qrButton = article.querySelector(".btn-open-qr");
-        const ticketLink = article.querySelector(".btn-open-ticket");
-
-        qrButton?.addEventListener("click", () => {
-            saveCurrentTicket(purchase);
-            fillQRModal(purchase);
-
-            if (qrModal && window.bootstrap) {
-                const modalInstance = bootstrap.Modal.getOrCreateInstance(qrModal);
-                modalInstance.show();
-            }
-        });
-
-        ticketLink?.addEventListener("click", () => {
-            saveCurrentTicket(purchase);
-        });
-
-        return article;
-    }
-
-    function fillQRModal(purchase) {
-        if (!qrModal || !purchase) return;
+    function fillQRModal(ticket) {
+        if (!qrModal || !ticket) return;
 
         const qrImage = qrModal.querySelector(".qr-container img");
         const title = qrModal.querySelector(".qr-modal-body h4");
@@ -92,81 +46,129 @@ document.addEventListener("DOMContentLoaded", () => {
         const ticketLink = qrModal.querySelector(".btn-main");
 
         if (qrImage) {
-            qrImage.src = purchase.ticket?.qr || "assets/img/qr-demo.png";
-            qrImage.alt = purchase.ticket?.codigo || "QR ticket";
+            qrImage.src = ticket.qr_image;
+            qrImage.alt = ticket.codigo;
         }
 
         if (title) {
-            title.textContent = purchase.evento?.nombre || "Evento";
+            title.textContent = ticket.evento.nombre;
         }
 
         if (code) {
-            code.textContent = purchase.ticket?.codigo || "Sin código";
+            code.textContent = ticket.codigo;
         }
 
         if (ticketLink) {
             ticketLink.onclick = () => {
-                saveCurrentTicket(purchase);
-                window.location.href = "ticket.html";
+                saveCurrentTicket(ticket);
+                window.location.href = `ticket.html?codigo=${encodeURIComponent(ticket.codigo)}`;
             };
         }
     }
 
-    function renderTickets(purchases) {
+    function createTicketCard(ticket) {
+        const article = document.createElement("article");
+        article.className = "ticket-card";
+
+        const { fecha, hora } = formatDateTime(ticket.evento.fecha_evento);
+        const comprador = `${ticket.comprador.nombres || ""} ${ticket.comprador.apellidos || ""}`.trim();
+
+        article.innerHTML = `
+            <div class="ticket-top">
+                <span class="badge-valid">${ticket.estado === "usada" ? "Usado" : "Válido"}</span>
+                <span class="ticket-number">#${ticket.codigo}</span>
+            </div>
+
+            <h3>${ticket.evento.nombre || "Evento no disponible"}</h3>
+
+            <div class="ticket-info">
+                <p><strong>Fecha:</strong> ${fecha}</p>
+                <p><strong>Hora:</strong> ${hora}</p>
+                <p><strong>Lugar:</strong> ${ticket.evento.lugar || "No disponible"}</p>
+                <p><strong>Comprador:</strong> ${comprador || "No disponible"}</p>
+            </div>
+
+            <div class="ticket-actions">
+                <button class="btn-main btn-open-qr">Ver QR</button>
+                <a href="ticket.html?codigo=${encodeURIComponent(ticket.codigo)}" class="btn-secondary-custom btn-open-ticket">Ver ticket</a>
+            </div>
+        `;
+
+        article.querySelector(".btn-open-qr")?.addEventListener("click", () => {
+            saveCurrentTicket(ticket);
+            fillQRModal(ticket);
+
+            if (qrModal && window.bootstrap) {
+                bootstrap.Modal.getOrCreateInstance(qrModal).show();
+            }
+        });
+
+        article.querySelector(".btn-open-ticket")?.addEventListener("click", () => {
+            saveCurrentTicket(ticket);
+        });
+
+        return article;
+    }
+
+    function renderTickets(entradas) {
         if (!ticketsGrid) return;
 
         ticketsGrid.innerHTML = "";
 
-        if (!purchases.length) {
+        if (!entradas.length) {
             ticketsGrid.innerHTML = `
-        <article class="ticket-card">
-          <h3>No se encontraron entradas</h3>
-          <div class="ticket-info">
-            <p>Intenta buscar con otro correo o documento.</p>
-          </div>
-        </article>
-      `;
+                <article class="ticket-card">
+                    <h3>No se encontraron entradas</h3>
+                    <div class="ticket-info">
+                        <p>Intenta buscar con otro correo o documento.</p>
+                    </div>
+                </article>
+            `;
             updateResultCount(0);
             return;
         }
 
-        purchases.forEach((purchase) => {
-            ticketsGrid.appendChild(createTicketCard(purchase));
+        entradas.forEach((ticket) => {
+            ticketsGrid.appendChild(createTicketCard(ticket));
         });
 
-        updateResultCount(purchases.length);
+        updateResultCount(entradas.length);
     }
 
-    function filterPurchases() {
-        const email = (emailInput?.value || "").trim().toLowerCase();
-        const documentValue = (docInput?.value || "").trim().toLowerCase();
+    async function buscarEntradas() {
+        const email = (emailInput?.value || "").trim();
+        const documento = (docInput?.value || "").trim();
 
-        if (!email && !documentValue) {
-            renderTickets(allPurchases);
+        if (!email && !documento) {
+            alert("Ingresa un correo o un documento.");
             return;
         }
 
-        const filtered = allPurchases.filter((purchase) => {
-            const purchaseEmail = (purchase.comprador?.email || "").toLowerCase();
-            const purchaseDoc = (purchase.comprador?.documento || "").toLowerCase();
+        try {
+            searchButton.disabled = true;
+            searchButton.textContent = "Buscando...";
 
-            const matchEmail = !email || purchaseEmail.includes(email);
-            const matchDoc = !documentValue || purchaseDoc.includes(documentValue);
+            const params = new URLSearchParams();
+            if (email) params.append("email", email);
+            if (documento) params.append("documento", documento);
 
-            return matchEmail && matchDoc;
-        });
+            const response = await fetch(`${API_ENTRADAS}?${params.toString()}`);
+            const data = await response.json();
 
-        renderTickets(filtered);
+            if (!response.ok || !data.ok) {
+                throw new Error(data.message || "No se pudieron obtener las entradas");
+            }
+
+            renderTickets(data.entradas || []);
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+            renderTickets([]);
+        } finally {
+            searchButton.disabled = false;
+            searchButton.textContent = "Buscar entradas";
+        }
     }
 
-    searchButton?.addEventListener("click", filterPurchases);
-    emailInput?.addEventListener("input", filterPurchases);
-    docInput?.addEventListener("input", filterPurchases);
-
-    renderTickets(allPurchases);
-
-    const qrModal2 = document.getElementById("qrModal2");
-    if (qrModal2) {
-        qrModal2.remove();
-    }
+    searchButton?.addEventListener("click", buscarEntradas);
 });

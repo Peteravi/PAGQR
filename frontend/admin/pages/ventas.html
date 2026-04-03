@@ -26,7 +26,6 @@
 
     <div class="container-fluid p-0">
         <div class="row g-0">
-            <!-- Sidebar (idéntico al admin.html) -->
             <nav class="col-md-3 col-lg-2 d-md-block sidebar">
                 <div class="position-sticky pt-4">
                     <div class="sidebar-header text-center mb-4">
@@ -34,23 +33,28 @@
                         <h2 class="brand-title mt-2">PagQR</h2>
                         <p class="brand-subtitle">Panel Admin</p>
                     </div>
+
                     <ul class="nav flex-column px-2">
                         <li class="nav-item">
                             <a class="nav-link" href="/admin">
                                 <i class="bi bi-calendar-event me-2"></i>
                                 <span>Eventos</span>
+                                <span class="badge bg-primary ms-auto" id="badgeEventos">0</span>
                             </a>
                         </li>
+
                         <li class="nav-item">
-                            <a class="nav-link active" href="/ventas">
+                            <a class="nav-link" href="/ventas">
                                 <i class="bi bi-graph-up me-2"></i>
                                 <span>Ventas</span>
                             </a>
                         </li>
+
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link active" href="/asistentes">
                                 <i class="bi bi-people me-2"></i>
                                 <span>Asistentes</span>
+                                <span class="badge bg-info ms-auto" id="badgeAsistentes">0</span>
                             </a>
                         </li>
                     </ul>
