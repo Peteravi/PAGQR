@@ -226,7 +226,7 @@ body {
 }
 
 .detalle-modal-dialog {
-    max-width: 1100px;
+    max-width: 1300px;
 }
 
 .detalle-evento-layout {
@@ -321,9 +321,39 @@ body {
 }
 
 .tipos-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    scroll-behavior: smooth;
+    padding: 4px 2px 12px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #c7d2e3 transparent;
+}
+
+.tipos-grid::-webkit-scrollbar {
+    height: 10px;
+}
+
+.tipos-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tipos-grid::-webkit-scrollbar-thumb {
+    background: #c7d2e3;
+    border-radius: 999px;
+}
+
+.tipos-grid::-webkit-scrollbar-thumb:hover {
+    background: #9fb3d9;
+}
+
+.ticket-option {
+    flex: 0 0 280px;
+    min-width: 280px;
+    max-width: 280px;
 }
 
 .ticket-option {
@@ -466,10 +496,16 @@ footer {
 }
 
 @media (max-width: 768px) {
-    .card-img-top {
-        height: 180px;
+    .tipos-grid {
+        gap: 12px;
+        padding-bottom: 10px;
     }
 
+    .ticket-option {
+        flex: 0 0 240px;
+        min-width: 240px;
+        max-width: 240px;
+    }
     .card-body {
         padding: 1.25rem;
     }
