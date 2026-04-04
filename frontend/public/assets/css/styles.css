@@ -1,8 +1,3 @@
-/* ========================================
-   ESTILOS PERSONALIZADOS PARA PAGQR - INDEX
-   Mejora visual en tarjetas de eventos
-   ======================================== */
-
 :root {
     --primary-color: #0d6efd;
     --primary-hover: #0b5ed7;
@@ -35,7 +30,6 @@ body {
     overflow-x: hidden;
 }
 
-/* ========== BARRA DE NAVEGACIÓN ========== */
 .navbar {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
     box-shadow: var(--shadow-md);
@@ -80,78 +74,11 @@ body {
     width: 70%;
 }
 
-/* ========== BANNER PRINCIPAL ========== */
-.bg-primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #004e92 100%) !important;
-    position: relative;
-    overflow: hidden;
+.hero-home,
+.hero-eventos {
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
 }
 
-.bg-primary::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1%, transparent 1%);
-    background-size: 50px 50px;
-    animation: moveBackground 20s linear infinite;
-    pointer-events: none;
-}
-
-@keyframes moveBackground {
-    0% {
-        transform: translate(0, 0);
-    }
-
-    100% {
-        transform: translate(50px, 50px);
-    }
-}
-
-.bg-primary h1,
-.bg-primary p {
-    position: relative;
-    z-index: 1;
-}
-
-.btn-light {
-    background: white;
-    color: var(--primary-color);
-    border: none;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-    z-index: 1;
-    font-weight: 600;
-    padding: 0.75rem 1.75rem;
-    border-radius: 50px;
-}
-
-.btn-light:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-    color: var(--primary-hover);
-}
-
-.btn-light::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
-    transition: left 0.5s;
-    z-index: -1;
-}
-
-.btn-light:hover::before {
-    left: 100%;
-}
-
-/* ========== SECCIÓN DE FILTROS ========== */
 .py-4.border-bottom {
     background: var(--bg-white);
     border-bottom: 1px solid var(--border-color) !important;
@@ -176,7 +103,6 @@ body {
     outline: none;
 }
 
-/* ========== TARJETAS DE EVENTOS - MEJORA VISUAL ========== */
 .card {
     border: none;
     border-radius: 1.25rem;
@@ -195,7 +121,6 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
-/* Contenedor de imagen con relación fija y efecto overlay */
 .card-img-top {
     width: 100%;
     height: 220px;
@@ -207,34 +132,6 @@ body {
     transform: scale(1.08);
 }
 
-/* Insignia de precio sobre la imagen */
-.card-img-wrapper {
-    position: relative;
-    overflow: hidden;
-}
-
-.price-badge {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    color: white;
-    padding: 0.4rem 1rem;
-    border-radius: 50px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    z-index: 2;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    letter-spacing: 0.5px;
-}
-
-.price-badge i {
-    margin-right: 0.3rem;
-    font-size: 0.85rem;
-}
-
-/* Cuerpo de la tarjeta */
 .card-body {
     padding: 1.5rem;
     flex: 1;
@@ -259,52 +156,12 @@ body {
     gap: 0.5rem;
 }
 
-.card-text i {
-    width: 1.25rem;
-    color: var(--primary-color);
-    font-size: 1rem;
-}
-
-.card-text strong {
-    color: var(--text-dark);
-    font-weight: 600;
-    margin-right: 0.25rem;
-}
-
-/* Botón de la tarjeta */
-.card .btn-primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-    border: none;
+.card .btn-primary,
+.card .btn-outline-primary {
     border-radius: 0.75rem;
-    padding: 0.75rem;
     font-weight: 600;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-    margin-top: auto;
 }
 
-.card .btn-primary::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s;
-}
-
-.card .btn-primary:hover::before {
-    left: 100%;
-}
-
-.card .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-/* Animación de entrada para las tarjetas */
 @keyframes cardFadeInUp {
     from {
         opacity: 0;
@@ -321,7 +178,6 @@ body {
     animation: cardFadeInUp 0.5s ease forwards;
 }
 
-/* ========== MODALES ========== */
 .modal-content {
     border-radius: 1.25rem;
     border: none;
@@ -345,16 +201,11 @@ body {
     padding: 1.75rem;
 }
 
-.modal-footer {
-    padding: 1.5rem;
-    border-top: 1px solid var(--border-color);
-}
-
 .modal .btn-primary,
 .modal .btn-success {
-    border-radius: 0.75rem;
-    padding: 0.75rem;
-    font-weight: 600;
+    border-radius: 0.95rem;
+    padding: 0.85rem 1rem;
+    font-weight: 700;
     transition: var(--transition);
 }
 
@@ -374,13 +225,246 @@ body {
     box-shadow: var(--shadow-md);
 }
 
-/* ========== PIE DE PÁGINA ========== */
+.detalle-modal-dialog {
+    max-width: 1100px;
+}
+
+.detalle-evento-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 460px) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+}
+
+.detalle-evento-media {
+    min-width: 0;
+}
+
+.detalle-evento-imagen-box {
+    width: 100%;
+    min-height: 360px;
+    height: 100%;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    background: linear-gradient(180deg, #eef3f8 0%, #f8f9fa 100%);
+    border: 1px solid #e9ecef;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detalle-evento-imagen {
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    max-height: 520px;
+    object-fit: cover;
+    display: block;
+}
+
+.detalle-evento-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.detalle-evento-header h3 {
+    font-size: clamp(1.7rem, 2vw, 2.4rem);
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.detalle-evento-meta {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.detalle-meta-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    color: var(--text-dark);
+    font-size: 1rem;
+}
+
+.detalle-meta-item i {
+    color: var(--primary-color);
+    font-size: 1.05rem;
+    line-height: 1.5;
+    margin-top: 0.1rem;
+}
+
+.detalle-meta-item strong {
+    font-weight: 700;
+}
+
+.detalle-meta-descripcion {
+    padding-top: 0.25rem;
+}
+
+.detalle-seccion {
+    margin-top: 0.25rem;
+}
+
+.detalle-seccion-titulo {
+    font-weight: 700;
+    margin-bottom: 0.9rem;
+    font-size: 1rem;
+}
+
+.evento-detalle-precio {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--primary-color);
+}
+
+.tipos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.ticket-option {
+    border: 2px solid #e9ecef;
+    border-radius: 18px;
+    padding: 16px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    height: 100%;
+}
+
+.ticket-option:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.ticket-option.selected {
+    border-color: #198754;
+    background: #f0fff6;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.12);
+}
+
+.ticket-option.disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    background: #f8f9fa;
+}
+
+.ticket-option-check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 1.1rem;
+    color: #198754;
+    display: none;
+}
+
+.ticket-option.selected .ticket-option-check {
+    display: inline-block;
+}
+
+.ticket-option-title {
+    font-weight: 800;
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+    padding-right: 28px;
+    text-transform: uppercase;
+}
+
+.ticket-option-desc {
+    font-size: 0.95rem;
+    color: #6c757d;
+    margin-bottom: 10px;
+    min-height: 48px;
+}
+
+.ticket-option-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.ticket-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: #f1f3f5;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.ticket-price {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #0d6efd;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+.ticket-hint {
+    font-size: 0.95rem;
+    color: #6c757d;
+    margin-top: 12px;
+}
+
+.ticket-empty {
+    border: 1px dashed #ced4da;
+    border-radius: 14px;
+    padding: 18px;
+    text-align: center;
+    color: #6c757d;
+    background: #f8f9fa;
+}
+
+.resumen-box {
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 18px;
+    border: 1px solid #e9ecef;
+}
+
 footer {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* ========== RESPONSIVE ========== */
+.btn {
+    transition: var(--transition);
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+#eventosCount {
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.4rem 1rem;
+    background: var(--primary-color);
+    color: white;
+}
+
+@media (max-width: 991.98px) {
+    .detalle-evento-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .detalle-evento-imagen-box,
+    .detalle-evento-imagen {
+        min-height: 280px;
+        max-height: 360px;
+    }
+}
+
 @media (max-width: 768px) {
     .card-img-top {
         height: 180px;
@@ -401,6 +485,14 @@ footer {
     .navbar-nav .nav-link::after {
         display: none;
     }
+
+    .tipos-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detalle-evento-header h3 {
+        font-size: 1.55rem;
+    }
 }
 
 @media (max-width: 576px) {
@@ -408,34 +500,22 @@ footer {
         font-size: 1.25rem;
     }
 
-    .bg-primary h1 {
-        font-size: 1.75rem;
-    }
-
     .card-img-top {
         height: 160px;
     }
 
-    .price-badge {
-        font-size: 0.75rem;
-        padding: 0.3rem 0.8rem;
+    .detalle-evento-imagen-box,
+    .detalle-evento-imagen {
+        min-height: 220px;
+        max-height: 280px;
     }
-}
 
-/* ========== UTILIDADES ADICIONALES ========== */
-.btn {
-    transition: var(--transition);
-}
+    .ticket-price {
+        font-size: 1.55rem;
+    }
 
-.btn:active {
-    transform: scale(0.98);
-}
-
-/* Estilo para el contador de eventos */
-#eventosCount {
-    font-size: 0.9rem;
-    font-weight: 600;
-    padding: 0.4rem 1rem;
-    background: var(--primary-color);
-    color: white;
+    .detalle-modal-dialog {
+        max-width: 100%;
+        margin: 0.5rem;
+    }
 }

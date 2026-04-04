@@ -26,14 +26,17 @@
         <div class="row g-0">
             <!-- SIDEBAR -->
             <nav class="col-md-3 col-lg-2 d-md-block sidebar">
-                <div class="position-sticky pt-4">
+                <div class="position-sticky pt-4 d-flex flex-column" style="height: 100vh;">
+
+                    <!-- HEADER -->
                     <div class="sidebar-header text-center mb-4">
                         <i class="bi bi-qr-code-scan brand-icon"></i>
                         <h2 class="brand-title mt-2">PagQR</h2>
                         <p class="brand-subtitle">Panel Admin</p>
                     </div>
 
-                    <ul class="nav flex-column px-2">
+                    <!-- MENÚ -->
+                    <ul class="nav flex-column px-2 flex-grow-1">
                         <li class="nav-item">
                             <a class="nav-link active" href="/admin">
                                 <i class="bi bi-calendar-event me-2"></i>
@@ -57,6 +60,15 @@
                             </a>
                         </li>
                     </ul>
+
+                    <!-- LOGOUT -->
+                    <div class="px-3 pb-4">
+                        <button id="btnLogout" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-box-arrow-right me-2"></i>
+                            Cerrar sesión
+                        </button>
+                    </div>
+
                 </div>
             </nav>
             <!-- Main content -->
@@ -146,8 +158,6 @@
                         </div>
                     </div>
                 </section>
-
-                <!-- Sección Asistentes (placeholder) -->
                 <section id="asistentes" class="seccion hidden">
                     <div class="section-header">
                         <div>
@@ -386,6 +396,37 @@
                 <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
             <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <!-- MODAL LOGOUT PRO -->
+    <div class="modal fade" id="logoutModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
+
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-box-arrow-right text-danger" style="font-size: 2.5rem;"></i>
+                    </div>
+
+                    <h5 class="fw-bold">Cerrar sesión</h5>
+
+                    <p class="text-muted mb-3">
+                        ¿Seguro que deseas salir del panel?<br>
+                        <small>Tendrás que volver a iniciar sesión</small>
+                    </p>
+
+                    <div class="d-flex justify-content-center gap-2">
+                        <button class="btn btn-light" data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+                        <button class="btn btn-danger" id="confirmLogoutBtn">
+                            Sí, salir
+                        </button>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 

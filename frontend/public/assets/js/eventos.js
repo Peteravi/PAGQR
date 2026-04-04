@@ -1,414 +1,937 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const API_EVENTOS = "http://localhost:3000/api/eventos";
-    const API_ORDENES = "http://localhost:3000/api/ordenes";
-    const STORAGE_KEYS = {
-        currentEvent: "pagqr_current_event",
-        lastPurchase: "pagqr_last_purchase",
-        purchases: "pagqr_purchases"
+const API_BASE = '/api/eventos-publicos';
+const API_ORDENES = '/api/ordenes';
+const API_PAGOS = '/api/pagos';
+const API_CSRF = '/api/admin-auth/csrf';
+const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/800x500?text=Evento';
+
+const STORAGE_KEYS = {
+    lastPurchase: 'pagqr_last_purchase',
+    currentTicket: 'pagqr_current_ticket'
+};
+
+let eventos = [];
+let eventosFiltrados = [];
+
+let eventoSeleccionado = null;
+let tiposEntradaActuales = [];
+let tipoEntradaSeleccionado = null;
+
+let detalleModal = null;
+let compraModal = null;
+let csrfTokenCache = null;
+let pagoEnProceso = false;
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+function escapeHtml(texto = '') {
+    const div = document.createElement('div');
+    div.textContent = String(texto ?? '');
+    return div.innerHTML;
+}
+
+function formatearMoneda(valor) {
+    const numero = Number(valor || 0);
+    return `$${numero.toFixed(2)}`;
+}
+
+function formatearFecha(fechaStr) {
+    if (!fechaStr) return '--';
+
+    const fecha = new Date(fechaStr);
+    if (Number.isNaN(fecha.getTime())) return '--';
+
+    return fecha.toLocaleDateString('es-EC', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
+function formatearHora(fechaStr) {
+    if (!fechaStr) return '--';
+
+    const fecha = new Date(fechaStr);
+    if (Number.isNaN(fecha.getTime())) return '--';
+
+    return fecha.toLocaleTimeString('es-EC', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function obtenerImagenEvento(imagenUrl) {
+    if (!imagenUrl || typeof imagenUrl !== 'string') {
+        return PLACEHOLDER_IMAGE;
+    }
+
+    if (
+        imagenUrl.startsWith('http://') ||
+        imagenUrl.startsWith('https://') ||
+        imagenUrl.startsWith('/')
+    ) {
+        return imagenUrl;
+    }
+
+    return `/${imagenUrl}`;
+}
+
+function mostrarAlerta(mensaje) {
+    alert(mensaje);
+}
+
+function guardarUltimaCompra(data) {
+    try {
+        localStorage.setItem(STORAGE_KEYS.lastPurchase, JSON.stringify(data));
+    } catch (error) {
+        console.warn('No se pudo guardar la última compra en localStorage:', error);
+    }
+}
+
+function limpiarTicketActual() {
+    try {
+        localStorage.removeItem(STORAGE_KEYS.currentTicket);
+    } catch (error) {
+        console.warn('No se pudo limpiar ticket actual:', error);
+    }
+}
+
+async function obtenerCsrfToken(forceRefresh = false) {
+    if (csrfTokenCache && !forceRefresh) {
+        return csrfTokenCache;
+    }
+
+    const response = await fetch(API_CSRF, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.ok || !data.csrfToken) {
+        throw new Error(data.message || 'No se pudo obtener el token CSRF.');
+    }
+
+    csrfTokenCache = data.csrfToken;
+    return csrfTokenCache;
+}
+
+async function fetchJson(url, options = {}) {
+    const {
+        withCsrf = false,
+        retryCsrf = true,
+        headers = {},
+        ...rest
+    } = options;
+
+    const finalHeaders = {
+        'Accept': 'application/json',
+        ...headers
     };
 
-    // Elementos del DOM
-    const eventosContainer = document.getElementById("eventosContainer");
-    const counterText = document.getElementById("eventosCount");
-    const searchInput = document.getElementById("searchInput");
-    const categorySelect = document.getElementById("categorySelect");
-    const citySelect = document.getElementById("citySelect");
-    const detailModal = document.getElementById("detalleEventoModal");
-    const detailTitle = document.getElementById("detalleTitulo");
-    const detailImage = document.getElementById("detalleImagen");
-    const detalleFecha = document.getElementById("detalleFecha");
-    const detalleHora = document.getElementById("detalleHora");
-    const detalleLugar = document.getElementById("detalleLugar");
-    const detalleDescripcion = document.getElementById("detalleDescripcion");
-    const buyButtonFromDetail = document.getElementById("btnComprarDesdeDetalle");
-    const purchaseModal = document.getElementById("compraModal");
-    const purchaseForm = document.getElementById("compraForm");
-    const payButton = document.getElementById("btnPagarPayPhone");
-    const quantityInput = document.getElementById("cantidad");
-    const summaryEvento = document.getElementById("resumenEvento");
-    const summaryTipo = document.getElementById("resumenTipo");
-    const summaryCantidad = document.getElementById("resumenCantidad");
-    const summaryPrecioUnitario = document.getElementById("resumenPrecioUnitario");
-    const summaryTotal = document.getElementById("resumenTotal");
-    const detalleTipoSelect = document.getElementById("detalleTipoEntrada");
-    const compraTipoSelect = document.getElementById("compraTipoEntrada");
-    const detalleStockInfo = document.getElementById("detalleStockInfo");
-    const compraStockInfo = document.getElementById("compraStockInfo");
-
-    let eventosGlobales = [];
-    let selectedEvent = null;
-    let tiposCache = [];
-
-    // =========================
-    // UTILIDADES
-    // =========================
-    function formatPrice(value) {
-        return `$${Number(value || 0).toFixed(2)}`;
+    if (withCsrf) {
+        const csrfToken = await obtenerCsrfToken(false);
+        finalHeaders['CSRF-Token'] = csrfToken;
     }
 
-    function safeParseJSON(key, fallback) {
+    const response = await fetch(url, {
+        credentials: 'same-origin',
+        ...rest,
+        headers: finalHeaders
+    });
+
+    let data = null;
+    try {
+        data = await response.json();
+    } catch {
+        data = null;
+    }
+
+    if (response.status === 403 && withCsrf && retryCsrf) {
+        const nuevoToken = await obtenerCsrfToken(true);
+
+        const retryHeaders = {
+            ...finalHeaders,
+            'CSRF-Token': nuevoToken
+        };
+
+        const retryResponse = await fetch(url, {
+            credentials: 'same-origin',
+            ...rest,
+            headers: retryHeaders
+        });
+
+        let retryData = null;
         try {
-            const raw = localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
-        } catch (error) {
-            console.error(`Error leyendo localStorage: ${key}`, error);
-            return fallback;
+            retryData = await retryResponse.json();
+        } catch {
+            retryData = null;
         }
-    }
 
-    function saveJSON(key, value) {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-            console.error(`Error guardando localStorage: ${key}`, error);
-        }
-    }
-
-    function getFormData() {
-        if (!purchaseForm) return null;
-        const inputs = purchaseForm.querySelectorAll("input");
-        if (inputs.length < 7) return null;
         return {
-            nombres: inputs[0]?.value.trim() || "",
-            apellidos: inputs[1]?.value.trim() || "",
-            email: inputs[2]?.value.trim() || "",
-            telefono: inputs[3]?.value.trim() || "",
-            documento: inputs[4]?.value.trim() || "",
-            cantidad: Math.max(1, Number(quantityInput?.value || 1)),
-            direccion: inputs[6]?.value.trim() || ""
+            response: retryResponse,
+            data: retryData
         };
     }
 
-    function validateEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return {
+        response,
+        data
+    };
+}
+
+function limpiarSeleccionTipo() {
+    tipoEntradaSeleccionado = null;
+    tiposEntradaActuales = [];
+
+    if ($('tipoEntradaId')) $('tipoEntradaId').value = '';
+    if ($('tipoEntradaNombre')) $('tipoEntradaNombre').value = '';
+    if ($('tipoEntradaPrecio')) $('tipoEntradaPrecio').value = '';
+    if ($('tipoEntradaMaximo')) $('tipoEntradaMaximo').value = '';
+
+    document.querySelectorAll('.ticket-option').forEach(card => {
+        card.classList.remove('selected');
+    });
+
+    if ($('detalleStockInfo')) {
+        $('detalleStockInfo').textContent = 'Selecciona una entrada para ver disponibilidad';
     }
 
-    function validatePurchaseData(data) {
-        if (!data) return { valid: false, message: "No se pudo leer el formulario." };
-        if (!data.nombres) return { valid: false, message: "Ingrese los nombres." };
-        if (!data.apellidos) return { valid: false, message: "Ingrese los apellidos." };
-        if (!data.email) return { valid: false, message: "Ingrese el correo electrónico." };
-        if (!validateEmail(data.email)) return { valid: false, message: "Ingrese un correo electrónico válido." };
-        if (!data.telefono) return { valid: false, message: "Ingrese el teléfono." };
-        if (!data.documento) return { valid: false, message: "Ingrese la cédula o RUC." };
-        if (!data.direccion) return { valid: false, message: "Ingrese la dirección." };
-        if (!data.cantidad || data.cantidad < 1) return { valid: false, message: "La cantidad debe ser mayor a 0." };
-        return { valid: true, message: "" };
+    if ($('compraStockInfo')) {
+        $('compraStockInfo').textContent = 'Selecciona una entrada para ver disponibilidad';
     }
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function (m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
+    actualizarResumenCompra();
+}
+
+function actualizarResumenCompra() {
+    const cantidadInput = $('cantidad');
+    const cantidad = Math.max(1, Number(cantidadInput?.value || 1));
+
+    if ($('resumenEvento')) {
+        $('resumenEvento').textContent = `Evento: ${eventoSeleccionado?.titulo || '--'}`;
     }
 
-    // =========================
-    // CARGAR TIPOS DE ENTRADA
-    // =========================
-    async function cargarTipos(eventoId) {
-        try {
-            const response = await fetch(`${API_EVENTOS}/${eventoId}/tipos`);
-            if (!response.ok) throw new Error("Error al cargar tipos");
-            const tipos = await response.json();
-            tiposCache = tipos;
-            const optionsHtml = tipos.map(tipo => {
-                const disabled = tipo.stock_disponible === 0 ? "disabled" : "";
-                return `<option value="${tipo.id_tipo_entrada}" data-precio="${tipo.precio}" data-stock="${tipo.stock_disponible}" ${disabled}>
-                            ${tipo.nombre} - ${formatPrice(tipo.precio)} (${tipo.stock_disponible} disponibles)
-                        </option>`;
-            }).join("");
-            if (detalleTipoSelect) detalleTipoSelect.innerHTML = `<option value="">Selecciona un tipo</option>${optionsHtml}`;
-            if (compraTipoSelect) compraTipoSelect.innerHTML = `<option value="">Selecciona un tipo</option>${optionsHtml}`;
-        } catch (error) {
-            console.error("Error cargando tipos:", error);
+    if ($('resumenCantidad')) {
+        $('resumenCantidad').textContent = `Cantidad: ${cantidad}`;
+    }
+
+    if (!tipoEntradaSeleccionado) {
+        if ($('resumenTipo')) $('resumenTipo').textContent = 'Tipo: --';
+        if ($('resumenPrecioUnitario')) $('resumenPrecioUnitario').textContent = 'Precio unitario: --';
+        if ($('resumenTotal')) $('resumenTotal').textContent = 'Total: --';
+        return;
+    }
+
+    const precio = Number(tipoEntradaSeleccionado.precio || 0);
+    const total = precio * cantidad;
+
+    if ($('resumenTipo')) {
+        $('resumenTipo').textContent = `Tipo: ${tipoEntradaSeleccionado.nombre || '--'}`;
+    }
+
+    if ($('resumenPrecioUnitario')) {
+        $('resumenPrecioUnitario').textContent = `Precio unitario: ${formatearMoneda(precio)}`;
+    }
+
+    if ($('resumenTotal')) {
+        $('resumenTotal').textContent = `Total: ${formatearMoneda(total)}`;
+    }
+}
+
+function actualizarCantidadSegunTipo() {
+    const cantidadInput = $('cantidad');
+    if (!cantidadInput) return;
+
+    if (!tipoEntradaSeleccionado) {
+        cantidadInput.min = 1;
+        cantidadInput.max = 1;
+        cantidadInput.value = 1;
+        actualizarResumenCompra();
+        return;
+    }
+
+    const stock = Number(tipoEntradaSeleccionado.stock_disponible || 0);
+    const maxCompraOriginal = Number(tipoEntradaSeleccionado.max_por_compra || 0);
+    const maxPermitido = Math.max(1, Math.min(stock || 1, maxCompraOriginal || stock || 1));
+
+    cantidadInput.min = 1;
+    cantidadInput.max = maxPermitido;
+
+    let cantidadActual = Number(cantidadInput.value || 1);
+
+    if (!Number.isFinite(cantidadActual) || cantidadActual < 1) {
+        cantidadActual = 1;
+    }
+
+    if (cantidadActual > maxPermitido) {
+        cantidadActual = maxPermitido;
+    }
+
+    cantidadInput.value = cantidadActual;
+    actualizarResumenCompra();
+}
+
+function seleccionarTipoEntrada(idTipo, origen = 'detalle') {
+    const tipo = tiposEntradaActuales.find(t => Number(t.id_tipo_entrada) === Number(idTipo));
+    if (!tipo) return;
+
+    tipoEntradaSeleccionado = tipo;
+
+    if ($('tipoEntradaId')) $('tipoEntradaId').value = tipo.id_tipo_entrada || '';
+    if ($('tipoEntradaNombre')) $('tipoEntradaNombre').value = tipo.nombre || '';
+    if ($('tipoEntradaPrecio')) $('tipoEntradaPrecio').value = tipo.precio || 0;
+    if ($('tipoEntradaMaximo')) $('tipoEntradaMaximo').value = tipo.max_por_compra || '';
+
+    document.querySelectorAll('.ticket-option').forEach(card => {
+        card.classList.remove('selected');
+    });
+
+    document.querySelectorAll(`.ticket-option[data-id="${tipo.id_tipo_entrada}"]`).forEach(card => {
+        card.classList.add('selected');
+    });
+
+    const maxCompraMostrado = tipo.max_por_compra || tipo.stock_disponible || 0;
+    const stockTxt = `Stock disponible: ${tipo.stock_disponible || 0} · Máximo por compra: ${maxCompraMostrado}`;
+
+    if ($('detalleStockInfo')) $('detalleStockInfo').textContent = stockTxt;
+    if ($('compraStockInfo')) $('compraStockInfo').textContent = stockTxt;
+
+    if (origen === 'detalle' && $('detallePrecio')) {
+        $('detallePrecio').textContent = formatearMoneda(tipo.precio);
+    }
+
+    actualizarCantidadSegunTipo();
+}
+
+function crearCardTipoEntrada(tipo) {
+    const stock = Number(tipo.stock_disponible || 0);
+    const maxCompra = Number(tipo.max_por_compra || stock || 1);
+    const agotado = stock <= 0;
+
+    return `
+        <div
+            class="ticket-option ${agotado ? 'disabled' : ''}"
+            data-id="${tipo.id_tipo_entrada}"
+            role="button"
+            tabindex="${agotado ? '-1' : '0'}"
+            onclick="${agotado ? '' : `seleccionarTipoEntrada(${tipo.id_tipo_entrada})`}"
+            onkeypress="${agotado ? '' : `if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); seleccionarTipoEntrada(${tipo.id_tipo_entrada}); }`}"
+            aria-label="Seleccionar entrada ${escapeHtml(tipo.nombre || 'Entrada')}"
+        >
+            <i class="bi bi-check-circle-fill ticket-option-check"></i>
+
+            <div class="ticket-option-title">
+                <i class="bi bi-ticket-perforated text-primary me-2"></i>${escapeHtml(tipo.nombre || 'Entrada')}
+            </div>
+
+            <div class="ticket-price">${formatearMoneda(tipo.precio)}</div>
+
+            <div class="ticket-option-desc">
+                ${escapeHtml(tipo.descripcion || 'Entrada disponible para este evento')}
+            </div>
+
+            <div class="ticket-option-meta">
+                <span class="ticket-badge">
+                    <i class="bi bi-box-seam"></i> Stock: ${stock}
+                </span>
+                <span class="ticket-badge">
+                    <i class="bi bi-cart"></i> Máx: ${maxCompra}
+                </span>
+            </div>
+
+            <div class="ticket-hint">
+                ${agotado ? 'Agotada' : 'Haz clic para seleccionar esta entrada'}
+            </div>
+        </div>
+    `;
+}
+
+function renderizarTiposEntrada(containerId, tipos) {
+    const container = $(containerId);
+    if (!container) return;
+
+    if (!Array.isArray(tipos) || tipos.length === 0) {
+        container.innerHTML = `
+            <div class="ticket-empty">
+                <i class="bi bi-exclamation-circle me-2"></i>
+                No hay tipos de entrada disponibles en este momento.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = tipos.map(crearCardTipoEntrada).join('');
+}
+
+async function cargarTiposEntrada(idEvento) {
+    try {
+        renderizarTiposEntrada('detalleTiposContainer', []);
+        renderizarTiposEntrada('compraTiposContainer', []);
+
+        const { response, data } = await fetchJson(`${API_BASE}/${idEvento}/tipos`);
+
+        if (!response.ok || !data?.ok) {
+            throw new Error(data?.message || 'No se pudieron cargar los tipos de entrada');
         }
-    }
 
-    function actualizarInfoTipo(select, stockInfoSpan) {
-        const selectedOption = select.options[select.selectedIndex];
-        if (!selectedOption || !selectedOption.value) {
-            if (stockInfoSpan) stockInfoSpan.textContent = "Stock disponible: --";
-            return null;
-        }
-        const stock = selectedOption.getAttribute("data-stock");
-        const precio = selectedOption.getAttribute("data-precio");
-        if (stockInfoSpan) stockInfoSpan.textContent = `Stock disponible: ${stock}`;
-        return { id: selectedOption.value, precio: parseFloat(precio), stock: parseInt(stock) };
-    }
+        tiposEntradaActuales = Array.isArray(data.data) ? data.data : [];
 
-    // =========================
-    // RENDERIZADO DE TARJETAS
-    // =========================
-    function renderEventos(eventos) {
-        if (!eventosContainer) return;
-        eventosContainer.innerHTML = "";
-        if (eventos.length === 0) {
-            eventosContainer.innerHTML = `<div class="col-12 text-center py-5"><p class="text-muted">No hay eventos disponibles en este momento.</p></div>`;
-            if (counterText) counterText.textContent = "0 eventos encontrados";
-            return;
+        renderizarTiposEntrada('detalleTiposContainer', tiposEntradaActuales);
+        renderizarTiposEntrada('compraTiposContainer', tiposEntradaActuales);
+
+        const primerDisponible = tiposEntradaActuales.find(tipo => Number(tipo.stock_disponible || 0) > 0);
+
+        if (primerDisponible) {
+            seleccionarTipoEntrada(primerDisponible.id_tipo_entrada, 'detalle');
+        } else {
+            limpiarSeleccionTipo();
         }
-        eventos.forEach(ev => {
-            const col = document.createElement("div");
-            col.className = "col-md-6 col-lg-4";
-            const fechaObj = new Date(ev.fecha_evento);
-            const fechaFormateada = fechaObj.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
-            const horaFormateada = fechaObj.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-            col.innerHTML = `
-                <div class="card h-100 shadow-sm">
-                    <img src="${ev.imagen_url || 'assets/img/placeholder.jpg'}" class="card-img-top" alt="${escapeHtml(ev.titulo)}" style="height: 200px; object-fit: cover;">
-                    <div class="card-body">
-                        <h5 class="card-title">${escapeHtml(ev.titulo)}</h5>
-                        <p class="card-text mb-1"><strong>Fecha:</strong> ${fechaFormateada}</p>
-                        <p class="card-text mb-1"><strong>Hora:</strong> ${horaFormateada}</p>
-                        <p class="card-text mb-1"><strong>Lugar:</strong> ${escapeHtml(ev.lugar)}</p>
-                        <p class="card-text mb-3"><strong>Desde:</strong> ${formatPrice(ev.precio || 0)}</p>
-                        <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#detalleEventoModal">
-                            Ver detalle
+    } catch (error) {
+        console.error('Error cargando tipos de entrada:', error);
+        tiposEntradaActuales = [];
+        limpiarSeleccionTipo();
+        renderizarTiposEntrada('detalleTiposContainer', []);
+        renderizarTiposEntrada('compraTiposContainer', []);
+    }
+}
+
+function crearCardEvento(evento) {
+    const fecha = formatearFecha(evento.fecha_evento);
+    const hora = formatearHora(evento.fecha_evento);
+    const lugar = [evento.lugar, evento.ciudad].filter(Boolean).join(' - ');
+    const imagen = obtenerImagenEvento(evento.imagen_url);
+    const precio = evento.precio_desde != null ? formatearMoneda(evento.precio_desde) : 'Próximamente';
+
+    return `
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden">
+                <img
+                    src="${escapeHtml(imagen)}"
+                    alt="${escapeHtml(evento.titulo || 'Evento')}"
+                    class="card-img-top"
+                    style="height: 220px; object-fit: cover;"
+                    onerror="this.src='${PLACEHOLDER_IMAGE}'"
+                >
+
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h5 class="card-title fw-bold mb-0">${escapeHtml(evento.titulo || 'Evento')}</h5>
+                        <span class="badge bg-primary-subtle text-primary border">${escapeHtml(evento.categoria || 'General')}</span>
+                    </div>
+
+                    <p class="text-muted small mb-2">
+                        <i class="bi bi-calendar-date me-1"></i>${fecha}
+                        <br>
+                        <i class="bi bi-clock me-1"></i>${hora}
+                        <br>
+                        <i class="bi bi-geo-alt me-1"></i>${escapeHtml(lugar || 'Ubicación por confirmar')}
+                    </p>
+
+                    <p class="card-text text-muted flex-grow-1">
+                        ${escapeHtml((evento.descripcion || 'Sin descripción').slice(0, 140))}
+                        ${(evento.descripcion || '').length > 140 ? '...' : ''}
+                    </p>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            <small class="text-muted d-block">Desde</small>
+                            <span class="fw-bold text-primary fs-5">${precio}</span>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary rounded-pill px-3"
+                            onclick="abrirDetalleEvento(${Number(evento.id_evento)})"
+                        >
+                            <i class="bi bi-eye me-1"></i> Ver detalle
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderizarEventos(lista) {
+    const container = $('eventosContainer');
+    const count = $('eventosCount');
+
+    if (!container) return;
+
+    if (!Array.isArray(lista) || lista.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-light border text-center py-4 rounded-4 mb-0">
+                    <i class="bi bi-calendar-x fs-1 d-block mb-2 text-muted"></i>
+                    No se encontraron eventos con esos filtros.
+                </div>
+            </div>
+        `;
+
+        if (count) count.textContent = '0 eventos';
+        return;
+    }
+
+    container.innerHTML = lista.map(crearCardEvento).join('');
+
+    if (count) {
+        count.textContent = `${lista.length} evento${lista.length === 1 ? '' : 's'}`;
+    }
+}
+
+function poblarSelect(selectId, valores, placeholder) {
+    const select = $(selectId);
+    if (!select) return;
+
+    const unicos = [...new Set(
+        valores
+            .map(v => String(v || '').trim())
+            .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b, 'es'));
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+
+    unicos.forEach(valor => {
+        const option = document.createElement('option');
+        option.value = valor;
+        option.textContent = valor;
+        select.appendChild(option);
+    });
+}
+
+function aplicarFiltros() {
+    const texto = String($('searchInput')?.value || '').trim().toLowerCase();
+    const categoria = String($('categorySelect')?.value || '').trim().toLowerCase();
+    const ciudad = String($('citySelect')?.value || '').trim().toLowerCase();
+
+    eventosFiltrados = eventos.filter(evento => {
+        const coincideTexto =
+            !texto ||
+            String(evento.titulo || '').toLowerCase().includes(texto) ||
+            String(evento.descripcion || '').toLowerCase().includes(texto) ||
+            String(evento.lugar || '').toLowerCase().includes(texto) ||
+            String(evento.ciudad || '').toLowerCase().includes(texto) ||
+            String(evento.categoria || '').toLowerCase().includes(texto);
+
+        const coincideCategoria =
+            !categoria ||
+            String(evento.categoria || '').trim().toLowerCase() === categoria;
+
+        const coincideCiudad =
+            !ciudad ||
+            String(evento.ciudad || '').trim().toLowerCase() === ciudad;
+
+        return coincideTexto && coincideCategoria && coincideCiudad;
+    });
+
+    renderizarEventos(eventosFiltrados);
+}
+
+async function cargarEventos() {
+    const container = $('eventosContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando eventos...</span>
+                </div>
+            </div>
+        `;
+    }
+
+    try {
+        const { response, data } = await fetchJson(API_BASE);
+
+        if (!response.ok || !data?.ok) {
+            throw new Error(data?.message || 'No se pudieron cargar los eventos');
+        }
+
+        eventos = Array.isArray(data.data) ? data.data : [];
+        eventosFiltrados = [...eventos];
+
+        poblarSelect('categorySelect', eventos.map(e => e.categoria), 'Todas las categorías');
+        poblarSelect('citySelect', eventos.map(e => e.ciudad), 'Todas las ciudades');
+
+        renderizarEventos(eventosFiltrados);
+    } catch (error) {
+        console.error('Error cargando eventos:', error);
+
+        if (container) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger text-center rounded-4 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        ${escapeHtml(error.message || 'No se pudieron cargar los eventos')}
+                    </div>
+                </div>
             `;
-            const button = col.querySelector("button");
-            button.addEventListener("click", async () => {
-                selectedEvent = ev;
-                await cargarTipos(ev.id_evento);
-                updateDetailModal(ev);
-            });
-            eventosContainer.appendChild(col);
-        });
-        if (counterText) counterText.textContent = `${eventos.length} evento${eventos.length !== 1 ? "s" : ""} encontrado${eventos.length !== 1 ? "s" : ""}`;
-    }
-
-    function updateDetailModal(evento) {
-        if (!detailModal) return;
-        selectedEvent = evento;
-        saveJSON(STORAGE_KEYS.currentEvent, evento);
-        if (detailTitle) detailTitle.textContent = evento.titulo;
-        const fechaObj = new Date(evento.fecha_evento);
-        const fechaFormateada = fechaObj.toLocaleDateString("es-ES");
-        const horaFormateada = fechaObj.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-        const lugarCompleto = [evento.lugar, evento.direccion].filter(Boolean).join(", ") || evento.lugar;
-        if (detailImage) {
-            detailImage.src = evento.imagen_url || "assets/img/placeholder.jpg";
-            detailImage.alt = evento.titulo;
         }
-        // Asignar valores usando IDs específicos
-        if (detalleFecha) detalleFecha.textContent = fechaFormateada;
-        if (detalleHora) detalleHora.textContent = horaFormateada;
-        if (detalleLugar) detalleLugar.textContent = escapeHtml(lugarCompleto);
-        if (detalleDescripcion) detalleDescripcion.textContent = escapeHtml(evento.descripcion || "Sin descripción");
 
-        const detallePrecio = document.getElementById("detallePrecio");
-        if (detallePrecio) detallePrecio.textContent = formatPrice(evento.precio || 0);
-    }
-
-    function updatePurchaseSummary() {
-        const tipoId = compraTipoSelect?.value;
-        const tipo = tiposCache.find(t => t.id_tipo_entrada == tipoId);
-        const quantity = Math.max(1, Number(quantityInput?.value || 1));
-        if (!tipo) {
-            if (summaryEvento) summaryEvento.textContent = `Evento: ${selectedEvent?.titulo || "--"}`;
-            if (summaryTipo) summaryTipo.textContent = `Tipo: --`;
-            if (summaryPrecioUnitario) summaryPrecioUnitario.textContent = `Precio unitario: --`;
-            if (summaryTotal) summaryTotal.textContent = `Total: --`;
-            return;
-        }
-        const total = tipo.precio * quantity;
-        if (summaryEvento) summaryEvento.textContent = `Evento: ${selectedEvent?.titulo || "--"}`;
-        if (summaryTipo) summaryTipo.textContent = `Tipo: ${tipo.nombre}`;
-        if (summaryCantidad) summaryCantidad.textContent = `Cantidad: ${quantity}`;
-        if (summaryPrecioUnitario) summaryPrecioUnitario.textContent = `Precio unitario: ${formatPrice(tipo.precio)}`;
-        if (summaryTotal) summaryTotal.textContent = `Total: ${formatPrice(total)}`;
-        if (summaryTotal) summaryTotal.classList.add("fw-bold");
-    }
-
-    // =========================
-    // FILTROS
-    // =========================
-    function populateFilters(eventos) {
-        if (!categorySelect || !citySelect) return;
-        const categorias = [...new Set(eventos.map(ev => ev.categoria).filter(Boolean))];
-        const ciudades = [...new Set(eventos.map(ev => ev.ciudad).filter(Boolean))];
-        categorySelect.innerHTML = '<option selected>Todas las categorías</option>';
-        categorias.forEach(cat => {
-            const option = document.createElement("option");
-            option.value = cat;
-            option.textContent = cat;
-            categorySelect.appendChild(option);
-        });
-        citySelect.innerHTML = '<option selected>Todas las ciudades</option>';
-        ciudades.forEach(ciudad => {
-            const option = document.createElement("option");
-            option.value = ciudad;
-            option.textContent = ciudad;
-            citySelect.appendChild(option);
-        });
-    }
-
-    function filterEvents() {
-        const searchTerm = (searchInput?.value || "").trim().toLowerCase();
-        const selectedCategory = (categorySelect?.value || "").trim();
-        const selectedCity = (citySelect?.value || "").trim();
-        const filtered = eventosGlobales.filter(ev => {
-            const matchSearch = !searchTerm || ev.titulo?.toLowerCase().includes(searchTerm);
-            const matchCategory = !selectedCategory || selectedCategory === "Todas las categorías" || ev.categoria === selectedCategory;
-            const matchCity = !selectedCity || selectedCity === "Todas las ciudades" || ev.ciudad === selectedCity;
-            return matchSearch && matchCategory && matchCity;
-        });
-        renderEventos(filtered);
-    }
-
-    // =========================
-    // CARGA DE DATOS
-    // =========================
-    async function cargarEventos() {
-        if (eventosContainer) {
-            eventosContainer.innerHTML = `<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando eventos...</span></div></div>`;
-        }
-        try {
-            const response = await fetch(API_EVENTOS);
-            if (!response.ok) throw new Error("Error al cargar eventos");
-            const eventos = await response.json();
-            eventosGlobales = eventos;
-            populateFilters(eventos);
-            renderEventos(eventos);
-            if (eventos.length > 0 && !selectedEvent) {
-                selectedEvent = eventos[0];
-                await cargarTipos(selectedEvent.id_evento);
-                updateDetailModal(eventos[0]);
-            }
-        } catch (error) {
-            console.error("Error cargando eventos:", error);
-            if (eventosContainer) {
-                eventosContainer.innerHTML = `<div class="col-12 text-center py-5 text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar eventos. Intenta nuevamente más tarde.</div>`;
-            }
+        if ($('eventosCount')) {
+            $('eventosCount').textContent = 'Error';
         }
     }
+}
 
-    // =========================
-    // COMPRA CON STOCK REAL
-    // =========================
-    async function savePurchase() {
-        if (!selectedEvent) {
-            alert("Primero selecciona un evento.");
-            return;
+async function abrirDetalleEvento(idEvento) {
+    try {
+        const { response, data } = await fetchJson(`${API_BASE}/${idEvento}`);
+
+        if (!response.ok || !data?.ok) {
+            throw new Error(data?.message || 'No se pudo cargar el evento');
         }
-        const tipoId = compraTipoSelect?.value;
-        if (!tipoId) {
-            alert("Selecciona un tipo de entrada.");
-            return;
+
+        const evento = data.data;
+        eventoSeleccionado = evento;
+
+        limpiarSeleccionTipo();
+
+        if ($('eventoIdSeleccionado')) $('eventoIdSeleccionado').value = evento.id_evento || '';
+        if ($('detalleTitulo')) $('detalleTitulo').textContent = evento.titulo || 'Evento';
+        if ($('detalleFecha')) $('detalleFecha').textContent = formatearFecha(evento.fecha_evento);
+        if ($('detalleHora')) $('detalleHora').textContent = formatearHora(evento.fecha_evento);
+        if ($('detalleLugar')) {
+            $('detalleLugar').textContent = [evento.lugar, evento.ciudad].filter(Boolean).join(' - ') || '--';
         }
-        const formData = getFormData();
-        const validation = validatePurchaseData(formData);
-        if (!validation.valid) {
-            alert(validation.message);
-            return;
+        if ($('detalleDescripcion')) {
+            $('detalleDescripcion').textContent = evento.descripcion || 'Sin descripción';
         }
-        const cantidad = formData.cantidad;
-        const tipo = tiposCache.find(t => t.id_tipo_entrada == tipoId);
-        if (!tipo) {
-            alert("Tipo de entrada no válido.");
-            return;
+        if ($('detallePrecio')) {
+            $('detallePrecio').textContent = evento.precio_desde != null
+                ? formatearMoneda(evento.precio_desde)
+                : '--';
         }
-        if (tipo.stock_disponible < cantidad) {
-            alert(`Stock insuficiente. Solo quedan ${tipo.stock_disponible} entradas de este tipo.`);
-            return;
-        }
-        const datosOrden = {
-            id_evento: selectedEvent.id_evento,
-            id_tipo_entrada: tipoId,
-            cantidad,
-            cliente: {
-                nombres: formData.nombres,
-                apellidos: formData.apellidos,
-                email: formData.email,
-                telefono: formData.telefono,
-                documento: formData.documento,
-                direccion: formData.direccion
-            }
-        };
-        const botonOriginal = payButton.textContent;
-        payButton.textContent = "Creando orden...";
-        payButton.disabled = true;
-        try {
-            const ordenResponse = await fetch(API_ORDENES, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datosOrden)
-            });
-            const ordenData = await ordenResponse.json();
-            if (!ordenData.ok) throw new Error(ordenData.message);
-            payButton.textContent = "Conectando con PayPhone...";
-            const pagoResponse = await fetch('/api/pagos/generar-link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_orden: ordenData.id_orden })
-            });
-            const pagoData = await pagoResponse.json();
-            if (!pagoData.ok) throw new Error(pagoData.message);
-            const purchaseData = {
-                id_orden: ordenData.id_orden,
-                codigo_orden: ordenData.codigo_orden,
-                evento: selectedEvent,
-                tipo: tipo,
-                comprador: datosOrden.cliente,
-                resumen: {
-                    cantidad,
-                    precioUnitario: tipo.precio,
-                    total: ordenData.total
-                }
+
+        const imagen = $('detalleImagen');
+        if (imagen) {
+            imagen.src = obtenerImagenEvento(evento.imagen_url);
+            imagen.alt = evento.titulo || 'Evento';
+            imagen.onerror = () => {
+                imagen.src = PLACEHOLDER_IMAGE;
             };
-            saveJSON(STORAGE_KEYS.lastPurchase, purchaseData);
-            window.location.href = pagoData.payUrl;
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Error al procesar la compra: ' + error.message);
-            payButton.textContent = botonOriginal;
-            payButton.disabled = false;
+        }
+
+        await cargarTiposEntrada(evento.id_evento);
+        actualizarResumenCompra();
+
+        if (detalleModal) {
+            detalleModal.show();
+        }
+    } catch (error) {
+        console.error('Error abriendo detalle:', error);
+        mostrarAlerta(error.message || 'No se pudo abrir el detalle del evento');
+    }
+}
+
+function abrirCompraDesdeDetalle() {
+    if (!eventoSeleccionado) {
+        mostrarAlerta('Primero debes seleccionar un evento.');
+        return;
+    }
+
+    if (!tiposEntradaActuales.length) {
+        mostrarAlerta('Este evento no tiene tipos de entrada disponibles en este momento.');
+        return;
+    }
+
+    if (!tipoEntradaSeleccionado) {
+        const primerDisponible = tiposEntradaActuales.find(tipo => Number(tipo.stock_disponible || 0) > 0);
+        if (!primerDisponible) {
+            mostrarAlerta('No hay stock disponible para este evento.');
+            return;
+        }
+        seleccionarTipoEntrada(primerDisponible.id_tipo_entrada, 'detalle');
+    }
+
+    actualizarResumenCompra();
+
+    if (detalleModal) detalleModal.hide();
+    if (compraModal) compraModal.show();
+}
+
+function validarFormularioCompra() {
+    const campos = [
+        { id: 'nombres', label: 'nombres' },
+        { id: 'apellidos', label: 'apellidos' },
+        { id: 'email', label: 'correo electrónico' },
+        { id: 'telefono', label: 'teléfono' },
+        { id: 'documento', label: 'cédula o RUC' },
+        { id: 'direccion', label: 'dirección' }
+    ];
+
+    for (const campo of campos) {
+        const input = $(campo.id);
+        if (!input || !String(input.value || '').trim()) {
+            mostrarAlerta(`Debes ingresar ${campo.label}.`);
+            input?.focus();
+            return false;
         }
     }
 
-    // =========================
-    // EVENT LISTENERS
-    // =========================
-    function bindEvents() {
-        searchInput?.addEventListener("input", filterEvents);
-        categorySelect?.addEventListener("change", filterEvents);
-        citySelect?.addEventListener("change", filterEvents);
-        buyButtonFromDetail?.addEventListener("click", () => {
-            const tipoId = detalleTipoSelect?.value;
-            if (compraTipoSelect && tipoId) {
-                compraTipoSelect.value = tipoId;
+    if (!tipoEntradaSeleccionado) {
+        mostrarAlerta('Debes seleccionar un tipo de entrada.');
+        return false;
+    }
+
+    const stock = Number(tipoEntradaSeleccionado.stock_disponible || 0);
+    if (stock <= 0) {
+        mostrarAlerta('El tipo de entrada seleccionado ya no tiene stock.');
+        return false;
+    }
+
+    const cantidad = Number($('cantidad')?.value || 0);
+    const maxCompra = Number(tipoEntradaSeleccionado.max_por_compra || stock || 1);
+    const maxPermitido = Math.max(1, Math.min(stock || 1, maxCompra || 1));
+
+    if (!Number.isInteger(cantidad) || cantidad < 1) {
+        mostrarAlerta('La cantidad debe ser al menos 1.');
+        $('cantidad')?.focus();
+        return false;
+    }
+
+    if (cantidad > maxPermitido) {
+        mostrarAlerta(`Solo puedes comprar hasta ${maxPermitido} entrada(s) de este tipo.`);
+        $('cantidad')?.focus();
+        $('cantidad').value = maxPermitido;
+        actualizarResumenCompra();
+        return false;
+    }
+
+    return true;
+}
+
+function construirPayloadOrden() {
+    const cantidad = Number($('cantidad')?.value || 1);
+    const precioUnitario = Number(tipoEntradaSeleccionado?.precio || 0);
+    const subtotal = Number((cantidad * precioUnitario).toFixed(2));
+    const iva = 0;
+    const total = Number((subtotal + iva).toFixed(2));
+
+    return {
+        cliente: {
+            nombres: $('nombres')?.value.trim(),
+            apellidos: $('apellidos')?.value.trim(),
+            email: $('email')?.value.trim(),
+            telefono: $('telefono')?.value.trim(),
+            cedula_ruc: $('documento')?.value.trim(),
+            direccion: $('direccion')?.value.trim()
+        },
+        items: [
+            {
+                id_tipo_entrada: Number(tipoEntradaSeleccionado.id_tipo_entrada),
+                cantidad
             }
-            updatePurchaseSummary();
-            const modal = new bootstrap.Modal(document.getElementById('compraModal'));
-            modal.show();
-        });
-        quantityInput?.addEventListener("input", updatePurchaseSummary);
-        quantityInput?.addEventListener("change", updatePurchaseSummary);
-        payButton?.addEventListener("click", savePurchase);
-        if (detalleTipoSelect) {
-            detalleTipoSelect.addEventListener("change", () => {
-                actualizarInfoTipo(detalleTipoSelect, detalleStockInfo);
-                if (compraTipoSelect) {
-                    compraTipoSelect.value = detalleTipoSelect.value;
-                    updatePurchaseSummary();
-                }
-            });
-        }
-        if (compraTipoSelect) {
-            compraTipoSelect.addEventListener("change", () => {
-                actualizarInfoTipo(compraTipoSelect, compraStockInfo);
-                updatePurchaseSummary();
-            });
-        }
+        ],
+        subtotal,
+        iva,
+        total
+    };
+}
+
+function setEstadoBotonPago(cargando) {
+    const boton = $('btnPagarPayPhone');
+    if (!boton) return;
+
+    boton.disabled = cargando;
+
+    if (cargando) {
+        boton.dataset.originalText = boton.innerHTML;
+        boton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Generando orden...';
+    } else {
+        boton.innerHTML = boton.dataset.originalText || '<i class="bi bi-phone me-2"></i>Pagar con PayPhone';
+    }
+}
+
+async function crearOrden(payloadOrden) {
+    const { response, data } = await fetchJson(API_ORDENES, {
+        method: 'POST',
+        withCsrf: true,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payloadOrden)
+    });
+
+    if (!response.ok || !data?.ok || !data.orden?.id_orden) {
+        throw new Error(data?.message || 'No se pudo crear la orden.');
     }
 
-    // Inicialización
-    cargarEventos();
-    bindEvents();
+    return data.orden;
+}
+
+async function generarLinkPago(idOrden) {
+    const { response, data } = await fetchJson(`${API_PAGOS}/generar-link`, {
+        method: 'POST',
+        withCsrf: true,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            id_orden: idOrden
+        })
+    });
+
+    if (!response.ok || !data?.ok || !data.payUrl) {
+        throw new Error(data?.message || 'No se pudo generar el link de pago.');
+    }
+
+    return data;
+}
+
+async function manejarPagoPayPhone() {
+    if (pagoEnProceso) return;
+    if (!validarFormularioCompra()) return;
+
+    try {
+        pagoEnProceso = true;
+        setEstadoBotonPago(true);
+        limpiarTicketActual();
+
+        const payloadOrden = construirPayloadOrden();
+        const orden = await crearOrden(payloadOrden);
+        const pago = await generarLinkPago(orden.id_orden);
+
+        guardarUltimaCompra({
+            id_orden: orden.id_orden,
+            codigo_orden: orden.codigo_orden,
+            total: orden.total,
+            estado: orden.estado,
+            evento: {
+                id_evento: eventoSeleccionado?.id_evento || null,
+                titulo: eventoSeleccionado?.titulo || ''
+            },
+            tipoEntrada: {
+                id_tipo_entrada: tipoEntradaSeleccionado?.id_tipo_entrada || null,
+                nombre: tipoEntradaSeleccionado?.nombre || '',
+                precio: Number(tipoEntradaSeleccionado?.precio || 0)
+            },
+            cantidad: Number($('cantidad')?.value || 1),
+            comprador: {
+                nombres: $('nombres')?.value.trim(),
+                apellidos: $('apellidos')?.value.trim(),
+                email: $('email')?.value.trim(),
+                telefono: $('telefono')?.value.trim(),
+                documento: $('documento')?.value.trim(),
+                direccion: $('direccion')?.value.trim()
+            },
+            payment: {
+                provider: 'PayPhone',
+                transactionId: pago.transactionId || null,
+                payUrl: pago.payUrl || ''
+            },
+            createdAt: new Date().toISOString()
+        });
+
+        reiniciarCompraCompleta();
+
+        window.location.href = pago.payUrl;
+    } catch (error) {
+        console.error('Error iniciando pago:', error);
+
+        reiniciarCompraCompleta();
+
+        mostrarAlerta(error.message || 'No se pudo iniciar el pago con PayPhone.');
+    } finally {
+        pagoEnProceso = false;
+        setEstadoBotonPago(false);
+    }
+}
+
+function registrarEventosUI() {
+    $('searchInput')?.addEventListener('input', aplicarFiltros);
+    $('categorySelect')?.addEventListener('change', aplicarFiltros);
+    $('citySelect')?.addEventListener('change', aplicarFiltros);
+
+    $('btnComprarDesdeDetalle')?.addEventListener('click', abrirCompraDesdeDetalle);
+
+    $('cantidad')?.addEventListener('input', () => {
+        if (!tipoEntradaSeleccionado) {
+            $('cantidad').value = 1;
+            actualizarResumenCompra();
+            return;
+        }
+
+        const stock = Number(tipoEntradaSeleccionado.stock_disponible || 0);
+        const maxCompra = Number(tipoEntradaSeleccionado.max_por_compra || stock || 1);
+        const maxPermitido = Math.max(1, Math.min(stock || 1, maxCompra || 1));
+
+        let valor = Number($('cantidad').value || 1);
+
+        if (!Number.isFinite(valor) || valor < 1) valor = 1;
+        if (valor > maxPermitido) valor = maxPermitido;
+
+        $('cantidad').value = valor;
+        actualizarResumenCompra();
+    });
+
+    $('compraForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await manejarPagoPayPhone();
+    });
+
+    $('btnPagarPayPhone')?.addEventListener('click', async () => {
+        await manejarPagoPayPhone();
+    });
+}
+
+function inicializarModales() {
+    const detalleModalEl = $('detalleEventoModal');
+    const compraModalEl = $('compraModal');
+
+    detalleModal = detalleModalEl ? new bootstrap.Modal(detalleModalEl) : null;
+    compraModal = compraModalEl ? new bootstrap.Modal(compraModalEl) : null;
+}
+
+function limpiarFormularioCompra() {
+    const form = $('compraForm');
+    if (form) {
+        form.reset();
+    }
+
+    if ($('cantidad')) {
+        $('cantidad').value = 1;
+        $('cantidad').min = 1;
+        $('cantidad').max = 1;
+    }
+
+    if ($('tipoEntradaId')) $('tipoEntradaId').value = '';
+    if ($('tipoEntradaNombre')) $('tipoEntradaNombre').value = '';
+    if ($('tipoEntradaPrecio')) $('tipoEntradaPrecio').value = '';
+    if ($('tipoEntradaMaximo')) $('tipoEntradaMaximo').value = '';
+    if ($('eventoIdSeleccionado')) $('eventoIdSeleccionado').value = '';
+
+    tipoEntradaSeleccionado = null;
+
+    document.querySelectorAll('.ticket-option').forEach(card => {
+        card.classList.remove('selected');
+    });
+
+    if ($('detalleStockInfo')) {
+        $('detalleStockInfo').textContent = 'Selecciona una entrada para ver disponibilidad';
+    }
+
+    if ($('compraStockInfo')) {
+        $('compraStockInfo').textContent = 'Selecciona una entrada para ver disponibilidad';
+    }
+
+    actualizarResumenCompra();
+}
+
+function reiniciarCompraCompleta() {
+    limpiarFormularioCompra();
+    limpiarTicketActual();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    inicializarModales();
+    registrarEventosUI();
+    await cargarEventos();
 });
+
+window.abrirDetalleEvento = abrirDetalleEvento;
+window.seleccionarTipoEntrada = seleccionarTipoEntrada;

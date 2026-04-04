@@ -1,63 +1,144 @@
-🎟️ Plataforma de Venta de Entradas Online
+# PagQR 🎟️
 
-Sistema web para la gestión y venta de entradas para eventos, con generación de códigos QR únicos, integración de pagos mediante PayPhone y almacenamiento de datos en MySQL.
+Sistema web para gestión de eventos, venta de entradas con QR y panel administrativo.
 
-📌 Descripción General
+---
 
-Esta plataforma permite a los usuarios:
+## 🚀 Estado del proyecto
 
-Explorar eventos disponibles
-Comprar entradas online
-Realizar pagos mediante PayPhone
-Recibir un ticket digital con QR único
-Validar entradas mediante escaneo QR
+Este proyecto se encuentra en una fase **funcional intermedia-avanzada (~70%)**.
 
-Además, incluye un panel administrativo para la gestión de eventos, ventas, clientes y validación de accesos.
+Actualmente incluye:
 
-🏗️ Arquitectura del Proyecto
+- Backend con Node.js + Express
+- Base de datos MySQL con inicialización automática
+- Frontend público para compra de entradas
+- Panel administrativo (eventos, ventas, asistentes)
+- Generación de entradas con código QR
+- Flujo básico de pagos (integración PayPhone en desarrollo)
+- Exportación de asistentes (CSV)
 
-El sistema está dividido en tres partes principales:
+⚠️ **No está listo para producción todavía** (ver sección “Pendientes”).
 
-Frontend: Interfaz de usuario (HTML, CSS, JS)
-Backend: API y lógica del sistema (Node.js)
-Base de datos: Gestión de datos (MySQL)
+---
 
-🎨frontend/
+## 📁 Estructura del proyecto
+PagQR/
+│
+├── backend/
+│ └── src/
+│ ├── app.js
+│ ├── server.js
+│ ├── config/
+│ ├── database/
+│ │ ├── connection.js
+│ │ ├── init.sql
+│ │ └── initDb.js
+│ ├── routes/
+│ │ ├── eventos.js
+│ │ ├── tipos-entrada.js
+│ │ ├── ordenes.js
+│ │ ├── pagos.js
+│ │ ├── entradas.js
+│ │ └── asistentes.js
+│ └── services/
+│
+├── frontend/
+│ ├── public/
+│ │ ├── index.html
+│ │ ├── eventos.html
+│ │ ├── confirmacion.html
+│ │ ├── error-pago.html
+│ │ ├── mis-entradas.html
+│ │ ├── ticket.html
+│ │ └── assets/
+│ │
+│ └── admin/
+│ ├── pages/
+│ │ ├── admin.html
+│ │ ├── ventas.html
+│ │ └── asistente.html
+│ └── assets/
+│ └── js/
+│ ├── admin.js
+│ ├── admin-ventas.js
+│ └── asistentes.js
+│
+├── package.json
+└── README.md
 
-Contiene toda la parte visual del sistema (lado cliente).
 
-public/
-Archivos públicos accesibles para los usuarios finales.
+---
 
-assets/: Recursos estáticos (CSS, JS, imágenes, íconos, fuentes)
-uploads/: Imágenes subidas (eventos, banners, organizadores)
-pages/: Vistas organizadas por funcionalidad
-Archivos .html: Páginas principales del sitio
+## ⚙️ Tecnologías usadas
 
+### Backend
+- Node.js
+- Express
+- MySQL (`mysql2`)
+- Multer (subida de imágenes)
+- QRCode (generación de QR)
 
-admin/
-Panel administrativo del sistema.
+### Frontend
+- HTML + CSS + JavaScript (vanilla)
+- Bootstrap (en algunas vistas)
 
-assets/: Recursos del panel admin
-pages/: Vistas del dashboard (eventos, ventas, clientes, reportes)
-Archivos .html: Interfaces del panel de administración
+---
 
+## 🧩 Funcionalidades implementadas
 
-⚙️backend/
+### 🎫 Eventos
+- Crear eventos
+- Editar eventos
+- Eliminar eventos
+- Subir imagen
+- Listar eventos
 
-Contiene toda la lógica del sistema y la API.
+### 🎟️ Tipos de entrada
+- Crear tipos de entrada
+- Definir precio y stock
+- Relación con eventos
 
-src/
-config/: Configuraciones generales (BD, entorno, PayPhone, correo)
-controllers/: Controladores que manejan las peticiones HTTP
-routes/: Definición de endpoints de la API
-services/: Lógica de negocio (QR, pagos, emails, PDF, etc.)
-models/: Modelos de datos (representación de tablas en MySQL)
-database/: Migraciones, seeders y scripts SQL
+### 🧾 Órdenes
+- Crear órdenes
+- Asociar cliente
+- Validar stock
+- Descontar stock automáticamente
+- Guardar detalle de compra
 
+### 💳 Pagos (parcial)
+- Generación de link de pago
+- Webhook para confirmar pago
+- Cambio de estado de orden
+- Generación de entradas al pagar
 
-🗄️ database/
+⚠️ Integración PayPhone **no finalizada completamente**
 
-Contiene la estructura y gestión de la base de datos MySQL.
+### 🎫 Entradas (QR)
+- Generación de código QR
+- Consulta por email o documento
+- Consulta por código único
+- Vista de ticket
 
-schema/: Definición de tablas
+### 👥 Asistentes (Admin)
+- Listado de asistentes
+- Filtros por evento y búsqueda
+- Paginación
+- Exportación CSV
+- Validación manual de entradas
+- Historial de validaciones
+
+### 📊 Panel Admin
+- Gestión de eventos
+- Vista de ventas
+- Vista de asistentes
+
+---
+
+## ▶️ Cómo ejecutar el proyecto
+
+### 1. Instalar dependencias
+
+```bash
+npm install
+

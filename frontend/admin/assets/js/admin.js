@@ -1,24 +1,79 @@
-// Configuración de la API
-const API_BASE = 'http://localhost:3000/api/eventos';
-const API_TIPOS = 'http://localhost:3000/api/tipos-entrada';
+const API_BASE = '/api/eventos';
+const API_TIPOS = '/api/tipos-entrada';
 
 // Elementos del DOM
 const loadingOverlay = document.getElementById('loadingOverlay');
 const toastElement = document.getElementById('toastNotification');
-const toast = new bootstrap.Toast(toastElement);
+const toast = toastElement ? new bootstrap.Toast(toastElement, { autohide: true, delay: 3500 }) : null;
 const modalEventoElement = document.getElementById('modalEvento');
-const modalEvento = new bootstrap.Modal(modalEventoElement);
+const modalEvento = modalEventoElement ? new bootstrap.Modal(modalEventoElement) : null;
 const formEvento = document.getElementById('formEvento');
 const searchInput = document.getElementById('searchEventos');
 
 let currentEditId = null;
-let currentEventIdForTipos = null;      // ID del evento cuyos tipos se están gestionando
-let tiposCache = [];                     // Para almacenar los tipos del evento actual
+let currentEventIdForTipos = null;
+let tiposCache = [];
+let logoutModalInstance = null;
+let adminCsrfToken = '';
+
+// =========================
+// CSRF
+// =========================
+async function obtenerCsrfToken(force = false) {
+    if (!force && adminCsrfToken) {
+        return adminCsrfToken;
+    }
+
+    const response = await fetch('/api/admin-auth/csrf', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.ok || !data.csrfToken) {
+        throw new Error(data.message || 'No se pudo obtener el token CSRF');
+    }
+
+    adminCsrfToken = data.csrfToken;
+    return adminCsrfToken;
+}
+
+async function fetchConCsrf(url, options = {}) {
+    let token = await obtenerCsrfToken();
+
+    const headers = new Headers(options.headers || {});
+    headers.set('CSRF-Token', token);
+
+    let response = await fetch(url, {
+        ...options,
+        credentials: 'same-origin',
+        headers
+    });
+
+    if (response.status === 403) {
+        token = await obtenerCsrfToken(true);
+        const retryHeaders = new Headers(options.headers || {});
+        retryHeaders.set('CSRF-Token', token);
+
+        response = await fetch(url, {
+            ...options,
+            credentials: 'same-origin',
+            headers: retryHeaders
+        });
+    }
+
+    return response;
+}
 
 // =========================
 // UTILIDADES
 // =========================
 function mostrarLoading(show) {
+    if (!loadingOverlay) return;
     if (show) loadingOverlay.classList.add('active');
     else loadingOverlay.classList.remove('active');
 }
@@ -28,28 +83,42 @@ function mostrarToast(titulo, mensaje, tipo = 'success') {
     const toastTitle = document.getElementById('toastTitle');
     const toastMessage = document.getElementById('toastMessage');
 
+    if (!toastElement || !toastTitle || !toastMessage || !toast) return;
+
+    toastElement.className = 'toast border-0';
+
     if (tipo === 'success') {
-        toastIcon.className = 'bi bi-check-circle-fill text-success me-2';
+        toastElement.classList.add('text-bg-success');
+        if (toastIcon) toastIcon.className = 'bi bi-check-circle-fill me-2';
         toastTitle.textContent = titulo;
     } else if (tipo === 'error') {
-        toastIcon.className = 'bi bi-exclamation-triangle-fill text-danger me-2';
+        toastElement.classList.add('text-bg-danger');
+        if (toastIcon) toastIcon.className = 'bi bi-exclamation-triangle-fill me-2';
+        toastTitle.textContent = titulo;
+    } else if (tipo === 'warning') {
+        toastElement.classList.add('text-bg-warning');
+        if (toastIcon) toastIcon.className = 'bi bi-exclamation-circle-fill me-2';
         toastTitle.textContent = titulo;
     } else {
-        toastIcon.className = 'bi bi-info-circle-fill text-info me-2';
+        toastElement.classList.add('text-bg-primary');
+        if (toastIcon) toastIcon.className = 'bi bi-info-circle-fill me-2';
         toastTitle.textContent = titulo;
     }
+
     toastMessage.textContent = mensaje;
     toast.show();
 }
 
 function formatearFecha(fecha) {
     if (!fecha) return 'No definida';
-    return new Date(fecha).toLocaleString();
+    const f = new Date(fecha);
+    if (isNaN(f.getTime())) return 'No definida';
+    return f.toLocaleString();
 }
 
 function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, function (m) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>]/g, function (m) {
         if (m === '&') return '&amp;';
         if (m === '<') return '&lt;';
         if (m === '>') return '&gt;';
@@ -58,31 +127,96 @@ function escapeHtml(str) {
 }
 
 // =========================
+// LOGOUT MODAL
+// =========================
+function inicializarLogoutModal() {
+    const modalElement = document.getElementById('logoutModal');
+    const btnLogout = document.getElementById('btnLogout');
+    const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+
+    if (!modalElement || !btnLogout || !confirmLogoutBtn || typeof bootstrap === 'undefined') {
+        return;
+    }
+
+    logoutModalInstance = new bootstrap.Modal(modalElement);
+
+    btnLogout.addEventListener('click', () => {
+        logoutModalInstance.show();
+    });
+
+    confirmLogoutBtn.addEventListener('click', cerrarSesion);
+}
+
+async function cerrarSesion() {
+    const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+
+    try {
+        if (confirmLogoutBtn) {
+            confirmLogoutBtn.disabled = true;
+            confirmLogoutBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Cerrando...
+            `;
+        }
+
+        const response = await fetchConCsrf('/api/admin-auth/logout', {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Error al cerrar sesión');
+        }
+
+        window.location.href = '/login';
+    } catch (error) {
+        console.error('Error cerrando sesión:', error);
+
+        if (logoutModalInstance) {
+            logoutModalInstance.hide();
+        }
+
+        mostrarToast('Error', error.message || 'No se pudo cerrar la sesión', 'error');
+    } finally {
+        if (confirmLogoutBtn) {
+            confirmLogoutBtn.disabled = false;
+            confirmLogoutBtn.innerHTML = `
+                <i class="bi bi-box-arrow-right me-2"></i>
+                Sí, cerrar sesión
+            `;
+        }
+    }
+}
+
+// =========================
 // CRUD EVENTOS
 // =========================
 async function cargarEventos() {
     mostrarLoading(true);
     try {
-        const response = await fetch(API_BASE);
+        const response = await fetch(API_BASE, { credentials: 'same-origin' });
         if (!response.ok) throw new Error('Error al cargar eventos');
-        const eventos = await response.json();
 
+        const eventos = await response.json();
         const tbody = document.querySelector('#tablaEventos tbody');
+        if (!tbody) return;
+
         tbody.innerHTML = '';
 
-        if (eventos.length === 0) {
+        if (!Array.isArray(eventos) || eventos.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted">No hay eventos registrados</td></tr>';
-            actualizarStats(eventos);
+            actualizarStats([]);
             return;
         }
 
-        // Para cada evento, obtenemos el stock total (suma de stock_disponible de sus tipos)
-        const eventosConStock = await Promise.all(eventos.map(async ev => {
+        const eventosConStock = await Promise.all(eventos.map(async (ev) => {
             try {
-                const resTipos = await fetch(`${API_BASE}/${ev.id_evento}/tipos`);
+                const resTipos = await fetch(`${API_BASE}/${ev.id_evento}/tipos`, { credentials: 'same-origin' });
                 if (resTipos.ok) {
                     const tipos = await resTipos.json();
-                    const stockTotal = tipos.reduce((sum, t) => sum + (t.stock_disponible || 0), 0);
+                    const stockTotal = Array.isArray(tipos)
+                        ? tipos.reduce((sum, t) => sum + (Number(t.stock_disponible) || 0), 0)
+                        : 0;
                     return { ...ev, stockTotal };
                 }
             } catch (e) {
@@ -92,22 +226,33 @@ async function cargarEventos() {
         }));
 
         eventosConStock.forEach(ev => {
-            const fecha = ev.fecha_evento;
             const lugarCiudad = [ev.lugar, ev.ciudad].filter(Boolean).join(', ') || ev.lugar || 'Sin lugar';
             let estadoBadge = '';
+
             switch (ev.estado) {
-                case 'publicado': estadoBadge = '<span class="badge bg-success">Publicado</span>'; break;
-                case 'borrador': estadoBadge = '<span class="badge bg-secondary">Borrador</span>'; break;
-                case 'agotado': estadoBadge = '<span class="badge bg-warning text-dark">Agotado</span>'; break;
-                case 'cancelado': estadoBadge = '<span class="badge bg-danger">Cancelado</span>'; break;
-                case 'finalizado': estadoBadge = '<span class="badge bg-info">Finalizado</span>'; break;
-                default: estadoBadge = `<span class="badge bg-light text-dark">${ev.estado}</span>`;
+                case 'publicado':
+                    estadoBadge = '<span class="badge bg-success">Publicado</span>';
+                    break;
+                case 'borrador':
+                    estadoBadge = '<span class="badge bg-secondary">Borrador</span>';
+                    break;
+                case 'agotado':
+                    estadoBadge = '<span class="badge bg-warning text-dark">Agotado</span>';
+                    break;
+                case 'cancelado':
+                    estadoBadge = '<span class="badge bg-danger">Cancelado</span>';
+                    break;
+                case 'finalizado':
+                    estadoBadge = '<span class="badge bg-info">Finalizado</span>';
+                    break;
+                default:
+                    estadoBadge = `<span class="badge bg-light text-dark">${escapeHtml(ev.estado)}</span>`;
             }
 
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${escapeHtml(ev.titulo)}</strong></td>
-                <td>${formatearFecha(fecha)}</td>
+                <td>${formatearFecha(ev.fecha_evento)}</td>
                 <td>${escapeHtml(lugarCiudad)}</td>
                 <td>${estadoBadge}</td>
                 <td><span class="badge bg-secondary">${ev.stockTotal}</span></td>
@@ -126,11 +271,14 @@ async function cargarEventos() {
             tbody.appendChild(row);
         });
 
-        actualizarStats(eventos);
+        actualizarStats(eventosConStock);
     } catch (error) {
         console.error(error);
         mostrarToast('Error', 'No se pudieron cargar los eventos', 'error');
-        document.querySelector('#tablaEventos tbody').innerHTML = '<tr><td colspan="6" class="text-center text-danger py-5">Error al cargar datos</td></tr>';
+        const tbody = document.querySelector('#tablaEventos tbody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-5">Error al cargar datos</td></tr>';
+        }
     } finally {
         mostrarLoading(false);
     }
@@ -140,16 +288,26 @@ function actualizarStats(eventos) {
     const total = eventos.length;
     const publicados = eventos.filter(ev => ev.estado === 'publicado').length;
     const hoy = new Date();
-    const proximos = eventos.filter(ev => new Date(ev.fecha_evento) > hoy).length;
+    const proximos = eventos.filter(ev => {
+        const f = new Date(ev.fecha_evento);
+        return !isNaN(f.getTime()) && f > hoy;
+    }).length;
 
-    document.getElementById('totalEventos').textContent = total;
-    document.getElementById('eventosActivos').textContent = publicados;
-    document.getElementById('eventosProximos').textContent = proximos;
-    document.getElementById('badgeEventos').textContent = total;
+    const totalEventos = document.getElementById('totalEventos');
+    const eventosActivos = document.getElementById('eventosActivos');
+    const eventosProximos = document.getElementById('eventosProximos');
+    const badgeEventos = document.getElementById('badgeEventos');
+
+    if (totalEventos) totalEventos.textContent = total;
+    if (eventosActivos) eventosActivos.textContent = publicados;
+    if (eventosProximos) eventosProximos.textContent = proximos;
+    if (badgeEventos) badgeEventos.textContent = total;
 }
 
 async function guardarEvento(event) {
     event.preventDefault();
+
+    if (!formEvento) return;
 
     const formData = new FormData(formEvento);
 
@@ -162,28 +320,38 @@ async function guardarEvento(event) {
     try {
         let url = API_BASE;
         let method = 'POST';
+
         if (currentEditId) {
             url = `${API_BASE}/${currentEditId}`;
             method = 'PUT';
         }
 
-        const response = await fetch(url, { method, body: formData });
-        if (!response.ok) throw new Error('Error al guardar');
+        const response = await fetchConCsrf(url, {
+            method,
+            body: formData
+        });
 
-        const result = await response.json();
-        if (result.ok === false) throw new Error(result.message);
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) throw new Error(result.message || 'Error al guardar');
+        if (result.ok === false) throw new Error(result.message || 'Error al guardar');
 
         mostrarToast('Éxito', currentEditId ? 'Evento actualizado correctamente' : 'Evento creado correctamente');
-        modalEvento.hide();
+
+        if (modalEvento) modalEvento.hide();
         formEvento.reset();
         currentEditId = null;
-        document.getElementById('modalTitle').textContent = 'Crear Evento';
+
+        const modalTitle = document.getElementById('modalTitle');
+        if (modalTitle) modalTitle.textContent = 'Crear Evento';
+
         const preview = document.getElementById('imagenPreview');
         if (preview) preview.style.display = 'none';
+
         cargarEventos();
     } catch (error) {
         console.error(error);
-        mostrarToast('Error', 'No se pudo guardar el evento', 'error');
+        mostrarToast('Error', error.message || 'No se pudo guardar el evento', 'error');
     } finally {
         mostrarLoading(false);
     }
@@ -194,13 +362,19 @@ async function eliminarEvento(id) {
 
     mostrarLoading(true);
     try {
-        const response = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Error al eliminar');
+        const response = await fetchConCsrf(`${API_BASE}/${id}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) throw new Error(result.message || 'Error al eliminar');
+
         mostrarToast('Eliminado', 'Evento eliminado correctamente');
         cargarEventos();
     } catch (error) {
         console.error(error);
-        mostrarToast('Error', 'No se pudo eliminar el evento', 'error');
+        mostrarToast('Error', error.message || 'No se pudo eliminar el evento', 'error');
     } finally {
         mostrarLoading(false);
     }
@@ -209,9 +383,11 @@ async function eliminarEvento(id) {
 async function editarEvento(id) {
     mostrarLoading(true);
     try {
-        const response = await fetch(`${API_BASE}/${id}`);
+        const response = await fetch(`${API_BASE}/${id}`, { credentials: 'same-origin' });
         if (!response.ok) throw new Error('Error al obtener evento');
+
         const evento = await response.json();
+        if (!formEvento) return;
 
         formEvento.titulo.value = evento.titulo || '';
         formEvento.descripcion.value = evento.descripcion || '';
@@ -229,7 +405,9 @@ async function editarEvento(id) {
         if (previewContainer && evento.imagen_url) {
             const img = previewContainer.querySelector('img');
             if (img) {
-                img.src = evento.imagen_url.startsWith('http') ? evento.imagen_url : `http://localhost:3000${evento.imagen_url}`;
+                img.src = evento.imagen_url.startsWith('http')
+                    ? evento.imagen_url
+                    : `${window.location.origin}${evento.imagen_url}`;
                 previewContainer.style.display = 'block';
             }
         } else if (previewContainer) {
@@ -237,8 +415,11 @@ async function editarEvento(id) {
         }
 
         currentEditId = evento.id_evento;
-        document.getElementById('modalTitle').textContent = 'Editar Evento';
-        modalEvento.show();
+
+        const modalTitle = document.getElementById('modalTitle');
+        if (modalTitle) modalTitle.textContent = 'Editar Evento';
+
+        if (modalEvento) modalEvento.show();
     } catch (error) {
         console.error(error);
         mostrarToast('Error', 'No se pudo cargar el evento para editar', 'error');
@@ -249,23 +430,26 @@ async function editarEvento(id) {
 
 function abrirModalEvento() {
     currentEditId = null;
-    formEvento.reset();
-    document.getElementById('modalTitle').textContent = 'Crear Evento';
+    if (formEvento) formEvento.reset();
+
+    const modalTitle = document.getElementById('modalTitle');
+    if (modalTitle) modalTitle.textContent = 'Crear Evento';
+
     const preview = document.getElementById('imagenPreview');
     if (preview) preview.style.display = 'none';
-    modalEvento.show();
+
+    if (modalEvento) modalEvento.show();
 }
 
 function filtrarEventos() {
+    if (!searchInput) return;
+
     const term = searchInput.value.toLowerCase().trim();
     const rows = document.querySelectorAll('#tablaEventos tbody tr');
+
     rows.forEach(row => {
         const texto = row.textContent.toLowerCase();
-        if (term === '' || texto.includes(term)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+        row.style.display = term === '' || texto.includes(term) ? '' : 'none';
     });
 }
 
@@ -274,43 +458,60 @@ function filtrarEventos() {
 // =========================
 async function gestionarTipos(eventoId) {
     currentEventIdForTipos = eventoId;
-    document.getElementById('tiposModalTitle').textContent = `Tipos de entrada - Evento #${eventoId}`;
+
+    const tiposModalTitle = document.getElementById('tiposModalTitle');
+    if (tiposModalTitle) {
+        tiposModalTitle.textContent = `Tipos de entrada - Evento #${eventoId}`;
+    }
+
     await cargarTipos(eventoId);
-    const modal = new bootstrap.Modal(document.getElementById('modalTipos'));
-    modal.show();
+    const modalEl = document.getElementById('modalTipos');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
 }
 
 async function cargarTipos(eventoId) {
     const tiposListDiv = document.getElementById('tiposList');
-    tiposListDiv.innerHTML = '<div class="alert alert-info">Cargando...</div>';
+    if (tiposListDiv) {
+        tiposListDiv.innerHTML = '<div class="alert alert-info">Cargando...</div>';
+    }
+
     try {
-        const response = await fetch(`${API_TIPOS}/evento/${eventoId}`);
+        const response = await fetch(`${API_TIPOS}/evento/${eventoId}`, { credentials: 'same-origin' });
         if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
         const tipos = await response.json();
-        tiposCache = tipos;
-        renderTiposList(tipos);
+        tiposCache = Array.isArray(tipos) ? tipos : [];
+        renderTiposList(tiposCache);
     } catch (error) {
         console.error('Error al cargar tipos:', error);
-        tiposListDiv.innerHTML = '<div class="alert alert-danger">Error al cargar tipos</div>';
+        if (tiposListDiv) {
+            tiposListDiv.innerHTML = '<div class="alert alert-danger">Error al cargar tipos</div>';
+        }
     }
 }
 
 function renderTiposList(tipos) {
     const tiposListDiv = document.getElementById('tiposList');
+    if (!tiposListDiv) return;
+
     if (!tipos.length) {
         tiposListDiv.innerHTML = '<div class="alert alert-warning">No hay tipos de entrada para este evento.</div>';
         return;
     }
 
     let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Nombre</th><th>Precio</th><th>Stock Total</th><th>Disponible</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+
     tipos.forEach(tipo => {
         html += `
             <tr>
                 <td>${escapeHtml(tipo.nombre)}</td>
-                <td>$${parseFloat(tipo.precio).toFixed(2)}</td>
-                <td>${tipo.stock_total}</td>
-                <td>${tipo.stock_disponible}</td>
-                <td><span class="badge ${tipo.estado === 'activo' ? 'bg-success' : 'bg-secondary'}">${tipo.estado}</span></td>
+                <td>$${parseFloat(tipo.precio || 0).toFixed(2)}</td>
+                <td>${Number(tipo.stock_total) || 0}</td>
+                <td>${Number(tipo.stock_disponible) || 0}</td>
+                <td><span class="badge ${tipo.estado === 'activo' ? 'bg-success' : 'bg-secondary'}">${escapeHtml(tipo.estado)}</span></td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary me-1" onclick="editarTipo(${tipo.id_tipo_entrada})">Editar</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="eliminarTipo(${tipo.id_tipo_entrada})">Eliminar</button>
@@ -318,6 +519,7 @@ function renderTiposList(tipos) {
             </tr>
         `;
     });
+
     html += '</tbody></table></div>';
     tiposListDiv.innerHTML = html;
 }
@@ -327,17 +529,19 @@ function editarTipo(tipoId) {
     if (!tipo) return;
 
     document.getElementById('tipoId').value = tipo.id_tipo_entrada;
-    document.getElementById('tipoNombre').value = tipo.nombre;
-    document.getElementById('tipoPrecio').value = tipo.precio;
+    document.getElementById('tipoNombre').value = tipo.nombre || '';
+    document.getElementById('tipoPrecio').value = tipo.precio || 0;
     document.getElementById('tipoDescripcion').value = tipo.descripcion || '';
-    document.getElementById('tipoStockTotal').value = tipo.stock_total;
-    document.getElementById('tipoStockDisponible').value = tipo.stock_disponible;
-    document.getElementById('tipoEstado').value = tipo.estado;
+    document.getElementById('tipoStockTotal').value = tipo.stock_total || 0;
+    document.getElementById('tipoStockDisponible').value = tipo.stock_disponible || 0;
+    document.getElementById('tipoEstado').value = tipo.estado || 'activo';
 }
 
 function resetTipoForm() {
-    document.getElementById('formTipo').reset();
-    document.getElementById('tipoId').value = '';
+    const formTipo = document.getElementById('formTipo');
+    if (formTipo) formTipo.reset();
+    const tipoId = document.getElementById('tipoId');
+    if (tipoId) tipoId.value = '';
 }
 
 async function guardarTipo(event) {
@@ -347,8 +551,8 @@ async function guardarTipo(event) {
     const nombre = document.getElementById('tipoNombre').value.trim();
     const precio = parseFloat(document.getElementById('tipoPrecio').value);
     const descripcion = document.getElementById('tipoDescripcion').value.trim();
-    const stockTotal = parseInt(document.getElementById('tipoStockTotal').value);
-    const stockDisponible = parseInt(document.getElementById('tipoStockDisponible').value);
+    const stockTotal = parseInt(document.getElementById('tipoStockTotal').value, 10);
+    const stockDisponible = parseInt(document.getElementById('tipoStockDisponible').value, 10);
     const estado = document.getElementById('tipoEstado').value;
 
     if (!nombre || isNaN(precio) || isNaN(stockTotal) || isNaN(stockDisponible)) {
@@ -375,30 +579,31 @@ async function guardarTipo(event) {
     try {
         let url = API_TIPOS;
         let method = 'POST';
+
         if (tipoId) {
             url = `${API_TIPOS}/${tipoId}`;
             method = 'PUT';
         }
 
-        const response = await fetch(url, {
+        const response = await fetchConCsrf(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
 
+        const responseData = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al guardar tipo');
+            throw new Error(responseData.message || 'Error al guardar tipo');
         }
 
         mostrarToast('Éxito', tipoId ? 'Tipo actualizado' : 'Tipo creado');
         resetTipoForm();
         await cargarTipos(currentEventIdForTipos);
-        // Actualizar la tabla de eventos para refrescar el stock mostrado
         cargarEventos();
     } catch (error) {
         console.error(error);
-        mostrarToast('Error', error.message, 'error');
+        mostrarToast('Error', error.message || 'No se pudo guardar el tipo', 'error');
     } finally {
         mostrarLoading(false);
     }
@@ -409,17 +614,22 @@ async function eliminarTipo(tipoId) {
 
     mostrarLoading(true);
     try {
-        const response = await fetch(`${API_TIPOS}/${tipoId}`, { method: 'DELETE' });
+        const response = await fetchConCsrf(`${API_TIPOS}/${tipoId}`, {
+            method: 'DELETE'
+        });
+
+        const errorData = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-            const errorData = await response.json();
             throw new Error(errorData.message || 'Error al eliminar tipo');
         }
+
         mostrarToast('Éxito', 'Tipo eliminado');
         await cargarTipos(currentEventIdForTipos);
         cargarEventos();
     } catch (error) {
         console.error(error);
-        mostrarToast('Error', error.message, 'error');
+        mostrarToast('Error', error.message || 'No se pudo eliminar el tipo', 'error');
     } finally {
         mostrarLoading(false);
     }
@@ -430,19 +640,8 @@ async function eliminarTipo(tipoId) {
 // =========================
 function mostrarSeccion(id) {
     document.querySelectorAll('.seccion').forEach(sec => sec.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-
-    document.querySelectorAll('.sidebar .nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            const section = link.getAttribute('data-section');
-
-            // SOLO prevenir si es navegación interna
-            if (section && link.getAttribute('href') === '#') {
-                e.preventDefault();
-                mostrarSeccion(section);
-            }
-        });
-    });
+    const sectionEl = document.getElementById(id);
+    if (sectionEl) sectionEl.classList.remove('hidden');
 }
 
 function descargarCSV() {
@@ -452,10 +651,24 @@ function descargarCSV() {
 // =========================
 // INICIALIZACIÓN
 // =========================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await obtenerCsrfToken();
+    } catch (error) {
+        console.error('Error inicializando CSRF:', error);
+        mostrarToast('Error', 'No se pudo inicializar la seguridad del panel', 'error');
+    }
+
+    inicializarLogoutModal();
     cargarEventos();
-    formEvento.addEventListener('submit', guardarEvento);
-    searchInput.addEventListener('input', filtrarEventos);
+
+    if (formEvento) {
+        formEvento.addEventListener('submit', guardarEvento);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filtrarEventos);
+    }
 
     document.querySelectorAll('.sidebar .nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -464,25 +677,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 mostrarSeccion(section);
             }
-            // Si no tiene data-section, permitir navegación normal
         });
     });
 
-    modalEventoElement.addEventListener('hidden.bs.modal', () => {
-        formEvento.reset();
-        currentEditId = null;
-        const preview = document.getElementById('imagenPreview');
-        if (preview) preview.style.display = 'none';
-    });
+    if (modalEventoElement) {
+        modalEventoElement.addEventListener('hidden.bs.modal', () => {
+            if (formEvento) formEvento.reset();
+            currentEditId = null;
+            const preview = document.getElementById('imagenPreview');
+            if (preview) preview.style.display = 'none';
+        });
+    }
 
-    // Gestión de tipos
-    document.getElementById('formTipo').addEventListener('submit', guardarTipo);
-    document.getElementById('btnCancelarTipo').addEventListener('click', resetTipoForm);
+    const formTipo = document.getElementById('formTipo');
+    if (formTipo) {
+        formTipo.addEventListener('submit', guardarTipo);
+    }
+
+    const btnCancelarTipo = document.getElementById('btnCancelarTipo');
+    if (btnCancelarTipo) {
+        btnCancelarTipo.addEventListener('click', resetTipoForm);
+    }
 
     const modalTipos = document.getElementById('modalTipos');
-    modalTipos.addEventListener('hidden.bs.modal', () => {
-        resetTipoForm();
-        currentEventIdForTipos = null;
-        tiposCache = [];
-    });
+    if (modalTipos) {
+        modalTipos.addEventListener('hidden.bs.modal', () => {
+            resetTipoForm();
+            currentEventIdForTipos = null;
+            tiposCache = [];
+        });
+    }
 });

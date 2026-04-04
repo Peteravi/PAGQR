@@ -5,19 +5,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PagQR - Entradas Online</title>
-    <!-- Bootstrap 5 CSS -->
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 
 <body>
 
-    <!-- NAVBAR -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="#">
+            <a class="navbar-brand fw-bold" href="/">
                 <i class="bi bi-qr-code-scan me-2"></i>PagQR
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuNavbar">
@@ -25,21 +23,32 @@
             </button>
             <div class="collapse navbar-collapse" id="menuNavbar">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link active" href="#"><i class="bi bi-house-door me-1"></i>
-                            Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/eventos.html"><i
-                                class="bi bi-calendar-event me-1"></i> Eventos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="mis-entradas.html"><i
-                                class="bi bi-ticket-perforated me-1"></i> Mis entradas</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#"><i class="bi bi-envelope me-1"></i> Contacto</a>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">
+                            <i class="bi bi-house-door me-1"></i> Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/eventos">
+                            <i class="bi bi-calendar-event me-1"></i> Eventos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/mis-entradas">
+                            <i class="bi bi-ticket-perforated me-1"></i> Mis entradas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="bi bi-envelope me-1"></i> Contacto
+                        </a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- BANNER -->
-    <section class="bg-primary text-white py-5 position-relative overflow-hidden">
+    <section class="hero-home text-white py-5 position-relative overflow-hidden">
         <div class="container text-center position-relative z-1">
             <i class="bi bi-ticket-perforated display-1 mb-3 d-block"></i>
             <h1 class="display-5 fw-bold">Compra tus entradas online</h1>
@@ -50,54 +59,70 @@
         </div>
     </section>
 
-    <!-- BUSCADOR Y FILTROS -->
     <section class="py-4 border-bottom bg-white shadow-sm">
         <div class="container">
             <div class="row g-3 align-items-end">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold"><i class="bi bi-search me-1"></i> Buscar evento</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-search me-1"></i> Buscar evento
+                    </label>
                     <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i
-                                class="bi bi-search text-muted"></i></span>
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
                         <input type="text" class="form-control border-start-0 ps-0" id="searchInput"
                             placeholder="Nombre del evento...">
                     </div>
                 </div>
+
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold"><i class="bi bi-tags me-1"></i> Categoría</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-tags me-1"></i> Categoría
+                    </label>
                     <select class="form-select" id="categorySelect">
-                        <option selected>Filtrar por categoría</option>
+                        <option value="">Todas las categorías</option>
                     </select>
                 </div>
+
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold"><i class="bi bi-geo-alt me-1"></i> Ciudad</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-geo-alt me-1"></i> Ciudad
+                    </label>
                     <select class="form-select" id="citySelect">
-                        <option selected>Filtrar por ciudad</option>
+                        <option value="">Todas las ciudades</option>
                     </select>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- LISTADO DE EVENTOS -->
     <section id="eventos" class="py-5">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                <h2 class="fw-bold mb-0"><i class="bi bi-calendar-week me-2 text-primary"></i>Eventos Más Esperados</h2>
+                <h2 class="fw-bold mb-0">
+                    <i class="bi bi-calendar-week me-2 text-primary"></i>Eventos Más Esperados
+                </h2>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary px-3 py-2 rounded-pill" id="eventosCount">Cargando...</span>
+                    <a href="/eventos" class="btn btn-outline-primary btn-sm rounded-pill">
+                        Ver todos
+                    </a>
+                </div>
             </div>
+
             <div class="row g-4" id="eventosContainer">
                 <div class="col-12 text-center py-5">
-                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando
-                            eventos...</span></div>
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando eventos...</span>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- MODAL DETALLE DEL EVENTO (con contenedor de tipos de entrada mejorado) -->
     <div class="modal fade" id="detalleEventoModal" tabindex="-1" aria-labelledby="detalleEventoModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable detalle-modal-dialog">
             <div class="modal-content border-0 shadow-lg rounded-4">
                 <div class="modal-header bg-light border-0">
                     <h5 class="modal-title fw-bold" id="detalleEventoModalLabel">
@@ -105,36 +130,53 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <img src="" class="img-fluid rounded-3 shadow-sm" id="detalleImagen" alt="Imagen del evento"
-                                style="height: 300px; width: 100%; object-fit: cover;">
-                        </div>
-                        <div class="col-md-6">
-                            <h3 class="fw-bold mb-3" id="detalleTitulo">Título del evento</h3>
-                            <p class="mb-2"><i class="bi bi-calendar-date me-2 text-primary"></i><strong>Fecha:</strong>
-                                <span id="detalleFecha"></span></p>
-                            <p class="mb-2"><i class="bi bi-clock me-2 text-primary"></i><strong>Hora:</strong> <span
-                                    id="detalleHora"></span></p>
-                            <p class="mb-2"><i class="bi bi-geo-alt me-2 text-primary"></i><strong>Lugar:</strong> <span
-                                    id="detalleLugar"></span></p>
-                            <p class="mb-3"><i
-                                    class="bi bi-chat-text me-2 text-primary"></i><strong>Descripción:</strong> <span
-                                    id="detalleDescripcion"></span></p>
 
-                            <!-- CONTENEDOR DE TIPOS DE ENTRADA (nombre, precio, stock) -->
-                            <div class="mt-3">
-                                <label class="form-label fw-semibold"><i
-                                        class="bi bi-ticket-perforated me-2 text-primary"></i>Tipos de entrada
-                                    disponibles</label>
-                                <div id="tiposContainer" class="row g-2 mt-2">
-                                    <div class="col-12 text-center text-muted">Cargando tipos...</div>
+                <div class="modal-body p-4 p-lg-4">
+                    <div class="detalle-evento-layout">
+                        <div class="detalle-evento-media">
+                            <div class="detalle-evento-imagen-box">
+                                <img src="" id="detalleImagen" class="detalle-evento-imagen" alt="Imagen del evento">
+                            </div>
+                        </div>
+
+                        <div class="detalle-evento-info">
+                            <div class="detalle-evento-header">
+                                <h3 class="fw-bold mb-2" id="detalleTitulo">Título del evento</h3>
+                            </div>
+
+                            <div class="detalle-evento-meta">
+                                <div class="detalle-meta-item">
+                                    <i class="bi bi-calendar-date"></i>
+                                    <div><strong>Fecha:</strong> <span id="detalleFecha"></span></div>
+                                </div>
+
+                                <div class="detalle-meta-item">
+                                    <i class="bi bi-clock"></i>
+                                    <div><strong>Hora:</strong> <span id="detalleHora"></span></div>
+                                </div>
+
+                                <div class="detalle-meta-item">
+                                    <i class="bi bi-geo-alt"></i>
+                                    <div><strong>Lugar:</strong> <span id="detalleLugar"></span></div>
+                                </div>
+
+                                <div class="detalle-meta-item detalle-meta-descripcion">
+                                    <i class="bi bi-chat-text"></i>
+                                    <div><strong>Descripción:</strong> <span id="detalleDescripcion"></span></div>
                                 </div>
                             </div>
 
+                            <div class="detalle-seccion">
+                                <div class="detalle-seccion-titulo">
+                                    <i class="bi bi-ticket-perforated text-primary me-2"></i>Tipos de entrada
+                                    disponibles
+                                </div>
+                                <div id="tiposContainer" class="row g-3 mt-1"></div>
+                            </div>
+
                             <div class="d-grid mt-4">
-                                <button class="btn btn-success btn-lg" id="btnComprarDesdeDetalle" disabled>
+                                <button class="btn btn-success btn-lg" id="btnComprarDesdeDetalle" type="button"
+                                    disabled>
                                     <i class="bi bi-cart-plus me-2"></i>Comprar entrada
                                 </button>
                             </div>
@@ -145,9 +187,8 @@
         </div>
     </div>
 
-    <!-- MODAL COMPRA -->
     <div class="modal fade" id="compraModal" tabindex="-1" aria-labelledby="compraModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-4">
                 <div class="modal-header bg-light border-0">
                     <h5 class="modal-title fw-bold" id="compraModalLabel">
@@ -155,6 +196,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
+
                 <div class="modal-body p-4">
                     <form id="compraForm">
                         <div class="row g-3">
@@ -163,47 +205,58 @@
                                 <input type="text" class="form-control" id="nombres" placeholder="Ingrese sus nombres"
                                     required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold"><i class="bi bi-person-badge me-1"></i>
                                     Apellidos</label>
                                 <input type="text" class="form-control" id="apellidos"
                                     placeholder="Ingrese sus apellidos" required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold"><i class="bi bi-envelope me-1"></i> Correo
                                     electrónico</label>
                                 <input type="email" class="form-control" id="email" placeholder="ejemplo@correo.com"
                                     required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold"><i class="bi bi-telephone me-1"></i>
                                     Teléfono</label>
                                 <input type="tel" class="form-control" id="telefono" placeholder="0999999999" required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold"><i class="bi bi-card-text me-1"></i> Cédula o
                                     RUC</label>
                                 <input type="text" class="form-control" id="documento"
                                     placeholder="Ingrese su identificación" required>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold"><i class="bi bi-calculator me-1"></i> Cantidad de
                                     entradas</label>
                                 <input type="number" class="form-control" id="cantidad" min="1" value="1" required>
                             </div>
+
                             <div class="col-12">
                                 <label class="form-label fw-semibold"><i class="bi bi-house-door me-1"></i>
                                     Dirección</label>
                                 <input type="text" class="form-control" id="direccion"
                                     placeholder="Ingrese su dirección" required>
                             </div>
+
                             <div class="col-12">
                                 <hr />
-                                <h6 class="fw-bold"><i class="bi bi-ticket-perforated me-2"></i>Tipo de entrada
-                                    seleccionado</h6>
-                                <p class="mb-1"><strong id="tipoSeleccionadoNombre">--</strong> - <span
-                                        id="tipoSeleccionadoPrecio">--</span></p>
-                                <p class="text-muted small">Stock disponible: <span id="tipoSeleccionadoStock">--</span>
+                                <h6 class="fw-bold">
+                                    <i class="bi bi-ticket-perforated me-2"></i>Tipo de entrada seleccionado
+                                </h6>
+                                <p class="mb-1">
+                                    <strong id="tipoSeleccionadoNombre">--</strong> -
+                                    <span id="tipoSeleccionadoPrecio">--</span>
+                                </p>
+                                <p class="text-muted small">
+                                    Stock disponible: <span id="tipoSeleccionadoStock">--</span>
                                 </p>
                                 <input type="hidden" id="tipoSeleccionadoId" value="">
                             </div>
@@ -213,18 +266,21 @@
 
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <h6 class="fw-bold"><i class="bi bi-receipt me-2"></i>Resumen de compra</h6>
-                                <p class="mb-1"><i class="bi bi-calendar-event me-2 text-muted"></i><span
-                                        id="resumenEvento">Evento: --</span></p>
-                                <p class="mb-1"><i class="bi bi-ticket-perforated me-2 text-muted"></i><span
-                                        id="resumenTipo">Tipo: --</span></p>
-                                <p class="mb-1"><i class="bi bi-123 me-2 text-muted"></i><span
-                                        id="resumenCantidad">Cantidad: 1</span></p>
-                                <p class="mb-1"><i class="bi bi-tag me-2 text-muted"></i><span
-                                        id="resumenPrecioUnitario">Precio unitario: --</span></p>
-                                <p class="fw-bold mt-2"><i class="bi bi-calculator-fill me-2 text-primary"></i><span
-                                        id="resumenTotal">Total: --</span></p>
+                                <div class="resumen-box h-100">
+                                    <h6 class="fw-bold"><i class="bi bi-receipt me-2"></i>Resumen de compra</h6>
+                                    <p class="mb-1"><i class="bi bi-calendar-event me-2 text-muted"></i><span
+                                            id="resumenEvento">Evento: --</span></p>
+                                    <p class="mb-1"><i class="bi bi-ticket-perforated me-2 text-muted"></i><span
+                                            id="resumenTipo">Tipo: --</span></p>
+                                    <p class="mb-1"><i class="bi bi-123 me-2 text-muted"></i><span
+                                            id="resumenCantidad">Cantidad: 1</span></p>
+                                    <p class="mb-1"><i class="bi bi-tag me-2 text-muted"></i><span
+                                            id="resumenPrecioUnitario">Precio unitario: --</span></p>
+                                    <p class="fw-bold mt-2"><i class="bi bi-calculator-fill me-2 text-primary"></i><span
+                                            id="resumenTotal">Total: --</span></p>
+                                </div>
                             </div>
+
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="d-grid w-100">
                                     <button type="button" class="btn btn-primary btn-lg" id="btnPagarPayPhone">
@@ -241,8 +297,10 @@
 
     <footer class="bg-dark text-white py-4 mt-5">
         <div class="container text-center">
-            <p class="mb-0"><i class="bi bi-c-circle me-1"></i> 2026 PagQR - Plataforma de venta de entradas online <i
-                    class="bi bi-qr-code ms-2"></i></p>
+            <p class="mb-0">
+                <i class="bi bi-c-circle me-1"></i> 2026 PagQR - Plataforma de venta de entradas online
+                <i class="bi bi-qr-code ms-2"></i>
+            </p>
         </div>
     </footer>
 

@@ -3,10 +3,6 @@ const QRCode = require('qrcode');
 const router = express.Router();
 const db = require('../config/db');
 
-function escapeLike(value = '') {
-    return value.replace(/[%_]/g, '\\$&');
-}
-
 function toIsoSafe(value) {
     if (!value) return null;
     const date = new Date(value);
@@ -16,6 +12,18 @@ function toIsoSafe(value) {
 function toNumber(value, fallback = 0) {
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
+}
+
+function cleanText(value = '') {
+    return String(value).trim();
+}
+
+function cleanEmail(value = '') {
+    return cleanText(value).toLowerCase();
+}
+
+function cleanDocumento(value = '') {
+    return cleanText(value).replace(/\s+/g, '');
 }
 
 async function mapEntrada(row) {
@@ -49,6 +57,10 @@ async function mapEntrada(row) {
             documento: row.cedula_ruc,
             direccion: row.cliente_direccion
         },
+        asistente: {
+            nombre: row.nombre_asistente,
+            email: row.email_asistente
+        },
         tipo: {
             id_tipo_entrada: row.id_tipo_entrada,
             nombre: row.tipo_nombre,
@@ -71,6 +83,8 @@ const BASE_SQL = `
         en.id_tipo_entrada,
         en.codigo_entrada,
         en.codigo_qr,
+        en.nombre_asistente,
+        en.email_asistente,
         en.estado AS estado_entrada,
         en.fecha_generacion,
         en.fecha_uso,
@@ -109,12 +123,13 @@ const BASE_SQL = `
 
 router.get('/', async (req, res) => {
     try {
-        const { email, documento } = req.query;
+        const email = cleanEmail(req.query.email);
+        const documento = cleanDocumento(req.query.documento);
 
         if (!email && !documento) {
             return res.status(400).json({
                 ok: false,
-                message: 'Debes enviar email o documento'
+                message: 'Debes ingresar un correo o un documento.'
             });
         }
 
@@ -122,19 +137,20 @@ router.get('/', async (req, res) => {
         const params = [];
 
         if (email) {
-            conditions.push(`LOWER(c.email) LIKE LOWER(?) ESCAPE '\\'`);
-            params.push(`%${escapeLike(String(email).trim())}%`);
+            conditions.push(`LOWER(TRIM(c.email)) = ?`);
+            params.push(email);
         }
 
         if (documento) {
-            conditions.push(`LOWER(c.cedula_ruc) LIKE LOWER(?) ESCAPE '\\'`);
-            params.push(`%${escapeLike(String(documento).trim())}%`);
+            conditions.push(`REPLACE(TRIM(c.cedula_ruc), ' ', '') = ?`);
+            params.push(documento);
         }
 
         const sql = `
             ${BASE_SQL}
             WHERE ${conditions.join(' AND ')}
             ORDER BY e.fecha_evento DESC, en.id_entrada DESC
+            LIMIT 100
         `;
 
         const [rows] = await db.execute(sql, params);
@@ -149,7 +165,7 @@ router.get('/', async (req, res) => {
         console.error('❌ Error obteniendo entradas:', error);
         return res.status(500).json({
             ok: false,
-            message: error.message
+            message: 'Error interno al obtener las entradas'
         });
     }
 });
@@ -184,7 +200,7 @@ router.get('/codigo/:codigo', async (req, res) => {
         console.error('❌ Error obteniendo entrada por código:', error);
         return res.status(500).json({
             ok: false,
-            message: error.message
+            message: 'Error interno al obtener la entrada'
         });
     }
 });

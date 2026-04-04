@@ -1,12 +1,5 @@
-// ============================================
-// asistentes.js - CORREGIDO
-// ============================================
-
 const API_BASE = '/api/asistentes';
 
-// -------------------------------
-// Estado global
-// -------------------------------
 let state = {
     asistentes: [],
     totalRegistros: 0,
@@ -27,9 +20,9 @@ let state = {
     }
 };
 
-// -------------------------------
-// DOM
-// -------------------------------
+let logoutModalInstance = null;
+let adminCsrfToken = '';
+
 const dom = {
     loadingOverlay: document.getElementById('loadingOverlay'),
     tablaBody: document.querySelector('#tablaAsistentes tbody'),
@@ -57,6 +50,60 @@ const dom = {
 };
 
 // -------------------------------
+// CSRF
+// -------------------------------
+async function obtenerCsrfToken(force = false) {
+    if (!force && adminCsrfToken) {
+        return adminCsrfToken;
+    }
+
+    const response = await fetch('/api/admin-auth/csrf', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.ok || !data.csrfToken) {
+        throw new Error(data.message || 'No se pudo obtener el token CSRF');
+    }
+
+    adminCsrfToken = data.csrfToken;
+    return adminCsrfToken;
+}
+
+async function fetchConCsrf(url, options = {}) {
+    let token = await obtenerCsrfToken();
+
+    const headers = new Headers(options.headers || {});
+    headers.set('CSRF-Token', token);
+
+    let response = await fetch(url, {
+        ...options,
+        credentials: 'same-origin',
+        headers
+    });
+
+    if (response.status === 403) {
+        token = await obtenerCsrfToken(true);
+
+        const retryHeaders = new Headers(options.headers || {});
+        retryHeaders.set('CSRF-Token', token);
+
+        response = await fetch(url, {
+            ...options,
+            credentials: 'same-origin',
+            headers: retryHeaders
+        });
+    }
+
+    return response;
+}
+
+// -------------------------------
 // UI helpers
 // -------------------------------
 function mostrarLoading(show) {
@@ -67,6 +114,7 @@ function mostrarLoading(show) {
 function mostrarToast(msg, tipo = 'info') {
     const el = document.getElementById('toastNotification');
     const body = document.getElementById('toastMessage');
+
     if (!el || !body || typeof bootstrap === 'undefined') return;
 
     body.textContent = msg;
@@ -82,11 +130,73 @@ function mostrarToast(msg, tipo = 'info') {
 }
 
 // -------------------------------
+// LOGOUT MODAL
+// -------------------------------
+function inicializarLogoutModal() {
+    const modalElement = document.getElementById('logoutModal');
+    const btnLogout = document.getElementById('btnLogout');
+    const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+
+    if (!modalElement || !btnLogout || !confirmLogoutBtn || typeof bootstrap === 'undefined') {
+        return;
+    }
+
+    logoutModalInstance = new bootstrap.Modal(modalElement);
+
+    btnLogout.addEventListener('click', () => {
+        logoutModalInstance.show();
+    });
+
+    confirmLogoutBtn.addEventListener('click', cerrarSesion);
+}
+
+async function cerrarSesion() {
+    const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+
+    try {
+        if (confirmLogoutBtn) {
+            confirmLogoutBtn.disabled = true;
+            confirmLogoutBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Cerrando...
+            `;
+        }
+
+        const response = await fetchConCsrf('/api/admin-auth/logout', {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Error al cerrar sesión');
+        }
+
+        window.location.href = '/login';
+    } catch (error) {
+        console.error('Error cerrando sesión:', error);
+
+        if (logoutModalInstance) {
+            logoutModalInstance.hide();
+        }
+
+        mostrarToast('No se pudo cerrar la sesión', 'error');
+    } finally {
+        if (confirmLogoutBtn) {
+            confirmLogoutBtn.disabled = false;
+            confirmLogoutBtn.innerHTML = `
+                <i class="bi bi-box-arrow-right me-2"></i>
+                Sí, cerrar sesión
+            `;
+        }
+    }
+}
+
+// -------------------------------
 // API
 // -------------------------------
 async function cargarResumen() {
     try {
-        const resp = await fetch(`${API_BASE}/resumen`);
+        const resp = await fetch(`${API_BASE}/resumen`, { credentials: 'same-origin' });
         const data = await resp.json();
 
         if (data.ok) {
@@ -103,10 +213,7 @@ async function cargarResumen() {
             if (dom.usadasElement) dom.usadasElement.textContent = state.resumen.usadas;
             if (dom.pendientesElement) dom.pendientesElement.textContent = state.resumen.pendientes;
             if (dom.canceladasElement) dom.canceladasElement.textContent = state.resumen.canceladas;
-
-            if (dom.badgeAsistentes) {
-                dom.badgeAsistentes.textContent = state.resumen.total;
-            }
+            if (dom.badgeAsistentes) dom.badgeAsistentes.textContent = state.resumen.total;
         }
     } catch (e) {
         console.error('Error cargando resumen:', e);
@@ -116,7 +223,7 @@ async function cargarResumen() {
 
 async function cargarEventos() {
     try {
-        const resp = await fetch(`${API_BASE}/eventos`);
+        const resp = await fetch(`${API_BASE}/eventos`, { credentials: 'same-origin' });
         const data = await resp.json();
 
         if (data.ok) {
@@ -159,7 +266,7 @@ async function cargarAsistentes(reset = true) {
             estado: state.filtros.estado || 'todos'
         });
 
-        const resp = await fetch(`${API_BASE}?${params.toString()}`);
+        const resp = await fetch(`${API_BASE}?${params.toString()}`, { credentials: 'same-origin' });
         const data = await resp.json();
 
         if (data.ok) {
@@ -173,10 +280,8 @@ async function cargarAsistentes(reset = true) {
 
             renderTabla();
             renderPaginacion();
-        } else {
-            if (dom.tablaBody) {
-                dom.tablaBody.innerHTML = `<tr><td colspan="7" class="text-center">No se pudo cargar la información</td></tr>`;
-            }
+        } else if (dom.tablaBody) {
+            dom.tablaBody.innerHTML = `<tr><td colspan="7" class="text-center">No se pudo cargar la información</td></tr>`;
         }
     } catch (e) {
         console.error('Error cargando asistentes:', e);
@@ -270,7 +375,7 @@ async function verDetalle(id) {
             return;
         }
 
-        const resp = await fetch(`${API_BASE}/${id}`);
+        const resp = await fetch(`${API_BASE}/${id}`, { credentials: 'same-origin' });
         const data = await resp.json();
 
         if (data.ok) {
@@ -294,7 +399,9 @@ async function descargarCSV() {
             estado: state.filtros.estado || 'todos'
         });
 
-        const resp = await fetch(`${API_BASE}/export/csv?${params.toString()}`);
+        const resp = await fetch(`${API_BASE}/export/csv?${params.toString()}`, {
+            credentials: 'same-origin'
+        });
 
         if (!resp.ok) {
             throw new Error(`Error HTTP ${resp.status}`);
@@ -332,7 +439,7 @@ async function validarManual() {
 
         mostrarLoading(true);
 
-        const resp = await fetch(`${API_BASE}/validar-manual`, {
+        const resp = await fetchConCsrf(`${API_BASE}/validar`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -344,7 +451,7 @@ async function validarManual() {
             })
         });
 
-        const data = await resp.json();
+        const data = await resp.json().catch(() => ({}));
 
         if (data.ok) {
             mostrarToast(data.message || 'Entrada validada correctamente', 'success');
@@ -378,7 +485,14 @@ function debounce(fn, delay = 300) {
 // -------------------------------
 // Eventos
 // -------------------------------
-function init() {
+async function init() {
+    try {
+        await obtenerCsrfToken();
+    } catch (error) {
+        console.error('Error inicializando CSRF:', error);
+        mostrarToast('No se pudo inicializar la seguridad del panel', 'error');
+    }
+
     cargarResumen();
     cargarEventos();
     cargarAsistentes();
@@ -441,4 +555,7 @@ function init() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', async () => {
+    await init();
+    inicializarLogoutModal();
+});
