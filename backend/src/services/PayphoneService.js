@@ -44,8 +44,15 @@ class PayphoneService {
             return response.data.payUrl;
 
         } catch (error) {
-            console.error('❌ Error al conectar con Payphone:', error.response ? error.response.data : error.message);
-            throw new Error('No se pudo generar el link de pago');
+            // 🕵️‍♂️ TRUCO NINJA: Capturamos la respuesta real de Payphone
+            const chismeReal = error.response && error.response.data
+                ? JSON.stringify(error.response.data)
+                : error.message;
+
+            console.error('❌ Error al conectar con Payphone:', chismeReal);
+
+            // Le mandamos el chisme a tu frontend para que salga en la alerta azul
+            throw new Error(`Motivo del rechazo: ${chismeReal}`);
         }
     }
     async verificarPago(transactionId) {
