@@ -2,11 +2,10 @@ const axios = require('axios');
 
 class PayphoneService {
     constructor() {
-        // Tomamos las llaves de tu .env de forma segura
         this.token = process.env.PAYPHONE_TOKEN;
         this.appId = process.env.PAYPHONE_APP_ID;
-        this.webhookUrl = process.env.PAYPHONE_WEBHOOK_URL;
-        
+        this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
         this.apiUrl = 'https://pay.payphonetodoesposible.com/api/button/Prepare';
     }
 
@@ -26,8 +25,7 @@ class PayphoneService {
                 tax: 0,
                 currency: "USD",
                 clientTransactionId: data.orderId,
-                
-                // ¡AQUÍ ESTÁ EL CAMBIO! 100% idénticas a lo que dice el portal
+
                 responseUrl: `${this.frontendUrl}/exito-pago.html`,
                 cancellationUrl: `${this.frontendUrl}/error-pago.html`
             };
@@ -41,7 +39,7 @@ class PayphoneService {
             });
 
             console.log('✅ Payphone preparó el pago exitosamente:', response.data);
-            
+
             // Retornamos la URL que Payphone nos generó para redirigir al cliente
             return response.data.payUrl;
 
