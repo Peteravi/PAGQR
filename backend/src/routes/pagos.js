@@ -2,16 +2,19 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const db = require('../config/db');
+const PayphoneService = require('../services/PayphoneService');
+const OrderBusiness = require('../business/OrderBusiness');
+const OrderDB = require('../database/OrderDB');
+const BillBusiness = require('../business/BillBusiness');
 
 // =========================
 // CONFIGURACIÓN DESDE VARIABLES DE ENTORNO
 // =========================
-const PAYPHONE_API_URL = process.env.PAYPHONE_API_URL || 'https://apisandbox.payphone.com.ec/v1';
-const PAYPHONE_CLIENT_ID = process.env.PAYPHONE_CLIENT_ID;
-const PAYPHONE_CLIENT_SECRET = process.env.PAYPHONE_CLIENT_SECRET;
-const PAYPHONE_STORE_ID = process.env.PAYPHONE_STORE_ID;
-const PAYPHONE_NOTIFY_URL = process.env.PAYPHONE_NOTIFY_URL || 'http://localhost:3000/api/pagos/webhook';
-const PAYPHONE_RETURN_URL = process.env.PAYPHONE_RETURN_URL || 'http://localhost:3000/confirmacion';
+const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const PAYPHONE_TOKEN = process.env.PAYPHONE_TOKEN;
+const PAYPHONE_APP_ID = process.env.PAYPHONE_APP_ID;
+const PAYPHONE_NOTIFY_URL = `${BASE_URL}/api/pagos/webhook`;
+const PAYPHONE_RETURN_URL = `${BASE_URL}/confirmacion`;
 
 // =========================
 // 🟢 GENERAR LINK DE PAGO CON PAYPHONE
@@ -242,6 +245,58 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         return res.sendStatus(500);
     } finally {
         connection.release();
+    }
+});
+
+router.post('/api/pagos/webhook', async (req, res) => {
+    console.log(`[WEBHOOK IN] Recibiendo notificación de pago... IP: ${req.ip}`);
+
+    try {
+        const payload = req.body;
+
+        if (!payload || !payload.id || !payload.clientTransactionId) {
+            console.warn('⚠️ [Seguridad] Webhook rechazado: Estructura inválida.', payload);
+            return res.status(400).json({ error: 'Payload inválido' });
+        }
+
+        // 2. IDEMPOTENCIA (TICKET PAY-002)
+        const isAlreadyProcessed = await OrderBusiness.checkIfOrderIsPaid(payload.clientTransactionId);
+        if (isAlreadyProcessed) {
+            console.log(`⚠️ [Idempotencia] La orden ${payload.clientTransactionId} ya estaba pagada. Ignorando aviso duplicado.`);
+            return res.status(200).send('Orden ya procesada anteriormente');
+        }
+
+        // 3. VALIDACIÓN CON PAYPHONE (TICKET PAY-001 y PAY-003)
+        console.log(`Consultando estado real de transacción: ${payload.id}`);
+        const pagoReal = await PayphoneService.verificarPago(payload.id);
+
+        if (pagoReal.transactionStatus === 'Approved' || pagoReal.statusCode === 3) {
+
+            console.log(`✅ ¡Pago Verificado Exitosamente! Orden: ${payload.clientTransactionId}`);
+
+            const datosCompletos = await OrderDB.obtenerDatosCompletosPorCodigo(payload.clientTransactionId);
+
+            if (datosCompletos) {
+                await BillBusiness.procesarFactura(datosCompletos);
+            } else {
+                console.warn(`⚠️ [Facturación] No se encontró la orden ${payload.clientTransactionId} en la BD para facturar.`);
+            }
+
+            return res.status(200).send('Webhook recibido, verificado y procesado');
+
+        } else {
+
+            // ROLLBACK DE STOCK (TICKET PAY-004)
+            console.warn(`❌ [Seguridad] Pago no aprobado o fallido. Iniciando rollback de stock para la orden: ${payload.clientTransactionId}`);
+
+            await OrderBusiness.handleFailedPayment(payload.clientTransactionId);
+
+            return res.status(400).send('Transacción no aprobada, stock restaurado');
+        }
+
+    } catch (error) {
+        console.error('🚨 [Error Webhook] Fallo crítico al procesar:', error.message);
+        return res.status(500).send('Error interno del servidor');
     }
 });
 

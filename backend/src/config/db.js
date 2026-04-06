@@ -2,11 +2,11 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const {
-  DB_HOST = 'localhost',
+  DB_HOST = 'mysql.railway.internal',
   DB_PORT = 3306,
   DB_USER = 'root',
-  DB_PASSWORD = '1234',
-  DB_NAME = 'pagqr_db'
+  DB_PASSWORD = 'EszZHkoRYvjPnEUDXhqxwwXghsFMsKDu',
+  DB_NAME = 'railway'
 } = process.env;
 
 const pool = mysql.createPool({

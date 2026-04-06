@@ -28,8 +28,8 @@ class PayphoneService {
                 clientTransactionId: data.orderId,
                 
                 // ¡AQUÍ ESTÁ EL CAMBIO! 100% idénticas a lo que dice el portal
-                responseUrl: 'http://localhost:3000',
-                cancellationUrl: 'http://localhost:3000'
+                responseUrl: `${this.frontendUrl}/exito-pago.html`,
+                cancellationUrl: `${this.frontendUrl}/error-pago.html`
             };
 
             // 2. Hacemos la llamada HTTP segura usando Axios
@@ -48,6 +48,24 @@ class PayphoneService {
         } catch (error) {
             console.error('❌ Error al conectar con Payphone:', error.response ? error.response.data : error.message);
             throw new Error('No se pudo generar el link de pago');
+        }
+    }
+    async verificarPago(transactionId) {
+        try {
+            // URL para consultar el estado real de la transacción
+            const verifyUrl = `https://pay.payphonetodoesposible.com/api/button/V2/${transactionId}`;
+
+            const response = await axios.get(verifyUrl, {
+                headers: {
+                    'Authorization': 'Bearer ' + this.token
+                }
+            });
+
+            // Retornamos la respuesta real de Payphone
+            return response.data;
+        } catch (error) {
+            console.error('❌ [Seguridad] Error verificando transacción en Payphone:', error.message);
+            throw new Error('No se pudo verificar la autenticidad del pago');
         }
     }
 }
