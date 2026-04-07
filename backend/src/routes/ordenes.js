@@ -18,13 +18,33 @@ function toIsoSafe(value) {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function isPositiveInteger(value) {
+    const n = Number(value);
+    return Number.isInteger(n) && n > 0;
+}
+
+function isNonEmptyString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidEmail(email) {
+    if (!isNonEmptyString(email)) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
+}
+
+function roundToTwo(value) {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
 // =========================
 // CREAR ORDEN
 // =========================
 router.post('/', async (req, res) => {
-    const connection = await db.getConnection();
+    let connection;
 
     try {
+        connection = await db.getConnection();
+
         const {
             cliente,
             items,
@@ -33,7 +53,7 @@ router.post('/', async (req, res) => {
             total
         } = req.body || {};
 
-        if (!cliente) {
+        if (!cliente || typeof cliente !== 'object') {
             return res.status(400).json({
                 ok: false,
                 message: 'Faltan los datos del cliente'
@@ -58,6 +78,27 @@ router.post('/', async (req, res) => {
             return res.status(400).json({
                 ok: false,
                 message: 'Cliente incompleto: nombres, apellidos y email son obligatorios'
+            });
+        }
+
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El email del cliente no es válido'
+            });
+        }
+
+        if (nombres.length > 100 || apellidos.length > 100 || email.length > 150) {
+            return res.status(400).json({
+                ok: false,
+                message: 'Uno o más campos del cliente exceden la longitud permitida'
+            });
+        }
+
+        if (telefono.length > 30 || cedula_ruc.length > 30 || direccion.length > 255) {
+            return res.status(400).json({
+                ok: false,
+                message: 'Uno o más datos del cliente exceden la longitud permitida'
             });
         }
 
@@ -97,11 +138,23 @@ router.post('/', async (req, res) => {
         const itemsValidados = [];
 
         for (const item of items) {
+            if (!item || typeof item !== 'object') {
+                await connection.rollback();
+                return res.status(400).json({
+                    ok: false,
+                    message: 'Item inválido en la orden'
+                });
+            }
+
             const id_tipo_entrada = toNumber(item.id_tipo_entrada);
             const cantidad = toNumber(item.cantidad);
 
-            if (!id_tipo_entrada || cantidad <= 0) {
-                throw new Error('Item inválido en la orden');
+            if (!isPositiveInteger(id_tipo_entrada) || !isPositiveInteger(cantidad)) {
+                await connection.rollback();
+                return res.status(400).json({
+                    ok: false,
+                    message: 'Cada item debe tener id_tipo_entrada y cantidad válidos'
+                });
             }
 
             const [tipoRows] = await connection.execute(
@@ -113,19 +166,35 @@ router.post('/', async (req, res) => {
             );
 
             if (tipoRows.length === 0) {
-                throw new Error(`Tipo de entrada no encontrado: ${id_tipo_entrada}`);
+                await connection.rollback();
+                return res.status(404).json({
+                    ok: false,
+                    message: `Tipo de entrada no encontrado: ${id_tipo_entrada}`
+                });
             }
 
             const tipo = tipoRows[0];
+            const stockDisponible = toNumber(tipo.stock_disponible);
+            const precio_unitario = toNumber(tipo.precio);
 
-            if (toNumber(tipo.stock_disponible) < cantidad) {
-                throw new Error(`Stock insuficiente para "${tipo.nombre}"`);
+            if (!Number.isFinite(precio_unitario) || precio_unitario < 0) {
+                await connection.rollback();
+                return res.status(400).json({
+                    ok: false,
+                    message: `El precio del tipo de entrada "${tipo.nombre}" es inválido`
+                });
             }
 
-            const precio_unitario = toNumber(tipo.precio);
-            const subtotal_item = precio_unitario * cantidad;
+            if (stockDisponible < cantidad) {
+                await connection.rollback();
+                return res.status(409).json({
+                    ok: false,
+                    message: `Stock insuficiente para "${tipo.nombre}"`
+                });
+            }
 
-            subtotalCalculado += subtotal_item;
+            const subtotal_item = roundToTwo(precio_unitario * cantidad);
+            subtotalCalculado = roundToTwo(subtotalCalculado + subtotal_item);
 
             itemsValidados.push({
                 id_tipo_entrada,
@@ -136,9 +205,63 @@ router.post('/', async (req, res) => {
             });
         }
 
-        const subtotalFinal = subtotal !== undefined ? toNumber(subtotal) : subtotalCalculado;
-        const ivaFinal = iva !== undefined ? toNumber(iva) : 0;
-        const totalFinal = total !== undefined ? toNumber(total) : subtotalFinal + ivaFinal;
+        const subtotalBody = subtotal !== undefined ? toNumber(subtotal, NaN) : undefined;
+        const ivaBody = iva !== undefined ? toNumber(iva, NaN) : undefined;
+        const totalBody = total !== undefined ? toNumber(total, NaN) : undefined;
+
+        if (subtotal !== undefined && (!Number.isFinite(subtotalBody) || subtotalBody < 0)) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                message: 'El subtotal enviado es inválido'
+            });
+        }
+
+        if (iva !== undefined && (!Number.isFinite(ivaBody) || ivaBody < 0)) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                message: 'El IVA enviado es inválido'
+            });
+        }
+
+        if (total !== undefined && (!Number.isFinite(totalBody) || totalBody < 0)) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                message: 'El total enviado es inválido'
+            });
+        }
+
+        const subtotalFinal = subtotal !== undefined ? roundToTwo(subtotalBody) : roundToTwo(subtotalCalculado);
+        const ivaFinal = iva !== undefined ? roundToTwo(ivaBody) : 0;
+        const totalFinal = total !== undefined ? roundToTwo(totalBody) : roundToTwo(subtotalFinal + ivaFinal);
+
+        if (subtotalFinal < 0 || ivaFinal < 0 || totalFinal < 0) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                message: 'Los valores monetarios de la orden son inválidos'
+            });
+        }
+
+        if (subtotalFinal === 0 && itemsValidados.length > 0) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                message: 'El subtotal calculado de la orden no es válido'
+            });
+        }
+
+        const totalEsperado = roundToTwo(subtotalFinal + ivaFinal);
+        if (Math.abs(totalEsperado - totalFinal) > 0.01) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                message: 'El total no coincide con subtotal + IVA'
+            });
+        }
+
         const codigo_orden = generarCodigoOrden();
 
         const [ordenInsert] = await connection.execute(
@@ -194,15 +317,24 @@ router.post('/', async (req, res) => {
             }
         });
     } catch (error) {
-        await connection.rollback();
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error('❌ Error en rollback al crear orden:', rollbackError);
+            }
+        }
+
         console.error('❌ Error creando orden:', error);
 
         return res.status(500).json({
             ok: false,
-            message: error.message || 'Error interno al crear la orden'
+            message: 'Error interno al crear la orden'
         });
     } finally {
-        connection.release();
+        if (connection) {
+            connection.release();
+        }
     }
 });
 
@@ -213,6 +345,13 @@ router.post('/', async (req, res) => {
 router.get('/:id/entradas', async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El id de la orden es inválido'
+            });
+        }
 
         const [ordenRows] = await db.execute(
             `
@@ -279,32 +418,41 @@ router.get('/:id/entradas', async (req, res) => {
         );
 
         const entradas = await Promise.all(
-            rows.map(async (row) => ({
-                id_entrada: row.id_entrada,
-                codigo: row.codigo_entrada,
-                qr_text: row.codigo_qr || row.codigo_entrada,
-                qr_image: await QRCode.toDataURL(row.codigo_qr || row.codigo_entrada, {
-                    width: 320,
-                    margin: 1
-                }),
-                estado: row.estado_entrada,
-                fecha_generacion: toIsoSafe(row.fecha_generacion),
-                fecha_uso: toIsoSafe(row.fecha_uso),
-                evento: {
-                    id_evento: row.id_evento,
-                    nombre: row.titulo,
-                    fecha_evento: toIsoSafe(row.fecha_evento),
-                    lugar: row.lugar,
-                    direccion: row.evento_direccion,
-                    ciudad: row.ciudad,
-                    imagen_url: row.imagen_url
-                },
-                tipo: {
-                    id_tipo_entrada: row.id_tipo_entrada,
-                    nombre: row.tipo_nombre,
-                    precio: toNumber(row.precio_unitario)
+            rows.map(async (row) => {
+                const qrValue = row.codigo_qr || row.codigo_entrada || '';
+                let qr_image = null;
+
+                if (qrValue) {
+                    qr_image = await QRCode.toDataURL(qrValue, {
+                        width: 320,
+                        margin: 1
+                    });
                 }
-            }))
+
+                return {
+                    id_entrada: row.id_entrada,
+                    codigo: row.codigo_entrada,
+                    qr_text: qrValue,
+                    qr_image,
+                    estado: row.estado_entrada,
+                    fecha_generacion: toIsoSafe(row.fecha_generacion),
+                    fecha_uso: toIsoSafe(row.fecha_uso),
+                    evento: {
+                        id_evento: row.id_evento,
+                        nombre: row.titulo,
+                        fecha_evento: toIsoSafe(row.fecha_evento),
+                        lugar: row.lugar,
+                        direccion: row.evento_direccion,
+                        ciudad: row.ciudad,
+                        imagen_url: row.imagen_url
+                    },
+                    tipo: {
+                        id_tipo_entrada: row.id_tipo_entrada,
+                        nombre: row.tipo_nombre,
+                        precio: toNumber(row.precio_unitario)
+                    }
+                };
+            })
         );
 
         return res.json({
@@ -329,7 +477,7 @@ router.get('/:id/entradas', async (req, res) => {
         console.error('❌ Error obteniendo entradas de la orden:', error);
         return res.status(500).json({
             ok: false,
-            message: error.message
+            message: 'Error interno al obtener las entradas de la orden'
         });
     }
 });
@@ -340,6 +488,13 @@ router.get('/:id/entradas', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El id de la orden es inválido'
+            });
+        }
 
         const [ordenRows] = await db.execute(
             `
@@ -432,7 +587,7 @@ router.get('/:id', async (req, res) => {
         console.error('❌ Error obteniendo orden:', error);
         return res.status(500).json({
             ok: false,
-            message: error.message
+            message: 'Error interno al obtener la orden'
         });
     }
 });

@@ -65,6 +65,108 @@ function eliminarArchivoSiExiste(rutaPublica) {
     }
 }
 
+function isPositiveInteger(value) {
+    const n = Number(value);
+    return Number.isInteger(n) && n > 0;
+}
+
+function isNonEmptyString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function normalizeString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function parsePrice(value) {
+    if (value === undefined || value === null || value === '') return 0;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : NaN;
+}
+
+function isValidDateInput(value) {
+    if (!isNonEmptyString(value)) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime());
+}
+
+function validateEstado(value) {
+    const estadosPermitidos = ['borrador', 'publicado', 'agotado', 'cancelado', 'finalizado'];
+    return estadosPermitidos.includes(String(value || '').trim().toLowerCase());
+}
+
+function sanitizeNullableString(value, maxLength = 255) {
+    if (value === undefined || value === null) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    return str.length > maxLength ? str.slice(0, maxLength) : str;
+}
+
+function validarCamposEvento(data) {
+    const errores = [];
+
+    const titulo = normalizeString(data.titulo);
+    const lugar = normalizeString(data.lugar);
+    const fecha_evento = normalizeString(data.fecha_evento);
+    const fecha_fin_evento = normalizeString(data.fecha_fin_evento);
+    const estado = normalizeString(data.estado || 'borrador').toLowerCase();
+    const precioNum = parsePrice(data.precio);
+
+    if (!titulo) errores.push('El título es obligatorio');
+    if (!lugar) errores.push('El lugar es obligatorio');
+    if (!fecha_evento) errores.push('La fecha de inicio es obligatoria');
+
+    if (titulo && titulo.length > 255) errores.push('El título excede la longitud permitida');
+    if (data.descripcion && String(data.descripcion).length > 5000) errores.push('La descripción excede la longitud permitida');
+    if (data.categoria && String(data.categoria).length > 100) errores.push('La categoría excede la longitud permitida');
+    if (lugar && lugar.length > 255) errores.push('El lugar excede la longitud permitida');
+    if (data.direccion && String(data.direccion).length > 255) errores.push('La dirección excede la longitud permitida');
+    if (data.ciudad && String(data.ciudad).length > 100) errores.push('La ciudad excede la longitud permitida');
+    if (data.organizador && String(data.organizador).length > 255) errores.push('El organizador excede la longitud permitida');
+
+    if (fecha_evento && !isValidDateInput(fecha_evento)) {
+        errores.push('La fecha de inicio no es válida');
+    }
+
+    if (fecha_fin_evento && !isValidDateInput(fecha_fin_evento)) {
+        errores.push('La fecha de fin no es válida');
+    }
+
+    if (fecha_evento && fecha_fin_evento && isValidDateInput(fecha_evento) && isValidDateInput(fecha_fin_evento)) {
+        const inicio = new Date(fecha_evento).getTime();
+        const fin = new Date(fecha_fin_evento).getTime();
+
+        if (fin < inicio) {
+            errores.push('La fecha de fin no puede ser menor que la fecha de inicio');
+        }
+    }
+
+    if (!validateEstado(estado)) {
+        errores.push('El estado del evento no es válido');
+    }
+
+    if (Number.isNaN(precioNum) || precioNum < 0) {
+        errores.push('El precio del evento no es válido');
+    }
+
+    return {
+        errores,
+        dataNormalizada: {
+            titulo,
+            descripcion: sanitizeNullableString(data.descripcion, 5000),
+            categoria: sanitizeNullableString(data.categoria, 100),
+            lugar,
+            direccion: sanitizeNullableString(data.direccion, 255),
+            ciudad: sanitizeNullableString(data.ciudad, 100),
+            fecha_evento,
+            fecha_fin_evento: fecha_fin_evento || null,
+            organizador: sanitizeNullableString(data.organizador, 255),
+            estado,
+            precio: Number.isNaN(precioNum) ? 0 : precioNum
+        }
+    };
+}
+
 // =========================
 // MULTER
 // =========================
@@ -108,29 +210,19 @@ router.post('/', upload, async (req, res) => {
             imagenUrl = `/uploads/eventos/${req.file.filename}`;
         }
 
-        const {
-            titulo,
-            descripcion,
-            categoria,
-            lugar,
-            direccion,
-            ciudad,
-            fecha_evento,
-            fecha_fin_evento,
-            organizador,
-            estado,
-            precio
-        } = req.body;
+        const { errores, dataNormalizada } = validarCamposEvento(req.body || {});
 
-        if (!titulo || !lugar || !fecha_evento) {
+        if (errores.length > 0) {
+            if (req.file) {
+                eliminarArchivoSiExiste(imagenUrl);
+            }
+
             return res.status(400).json({
                 ok: false,
-                message: 'Faltan campos obligatorios: título, lugar y fecha inicio'
+                message: errores[0],
+                errors: errores
             });
         }
-
-        let precioNum = parseFloat(precio);
-        if (isNaN(precioNum)) precioNum = 0.00;
 
         const sql = `
             INSERT INTO eventos (
@@ -153,18 +245,18 @@ router.post('/', upload, async (req, res) => {
         `;
 
         const [result] = await db.execute(sql, [
-            titulo,
-            descripcion || null,
-            categoria || null,
-            lugar,
-            direccion || null,
-            ciudad || null,
-            fecha_evento,
-            fecha_fin_evento || null,
+            dataNormalizada.titulo,
+            dataNormalizada.descripcion,
+            dataNormalizada.categoria,
+            dataNormalizada.lugar,
+            dataNormalizada.direccion,
+            dataNormalizada.ciudad,
+            dataNormalizada.fecha_evento,
+            dataNormalizada.fecha_fin_evento,
             imagenUrl,
-            organizador || null,
-            estado || 'borrador',
-            precioNum
+            dataNormalizada.organizador,
+            dataNormalizada.estado || 'borrador',
+            dataNormalizada.precio
         ]);
 
         return res.json({
@@ -176,7 +268,7 @@ router.post('/', upload, async (req, res) => {
         console.error('❌ ERROR CREAR EVENTO:', error);
         return res.status(500).json({
             ok: false,
-            message: error.message || 'Error al crear evento'
+            message: 'Error al crear evento'
         });
     }
 });
@@ -208,9 +300,16 @@ router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El id del evento es inválido'
+            });
+        }
+
         const [rows] = await db.execute(
             `SELECT * FROM eventos WHERE id_evento = ?`,
-            [id]
+            [Number(id)]
         );
 
         if (!rows.length) {
@@ -237,6 +336,13 @@ router.get('/:id/tipos', async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El id del evento es inválido'
+            });
+        }
+
         const [rows] = await db.execute(
             `
             SELECT
@@ -250,7 +356,7 @@ router.get('/:id/tipos', async (req, res) => {
             WHERE id_evento = ?
             ORDER BY id_tipo_entrada ASC
             `,
-            [id]
+            [Number(id)]
         );
 
         return res.json(rows);
@@ -270,7 +376,18 @@ router.put('/:id', upload, async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El id del evento es inválido'
+            });
+        }
+
         if (!req.body || Object.keys(req.body).length === 0) {
+            if (req.file) {
+                eliminarArchivoSiExiste(`/uploads/eventos/${req.file.filename}`);
+            }
+
             return res.status(400).json({
                 ok: false,
                 message: 'No se recibieron datos del formulario'
@@ -279,10 +396,14 @@ router.put('/:id', upload, async (req, res) => {
 
         const [eventoRows] = await db.execute(
             `SELECT * FROM eventos WHERE id_evento = ?`,
-            [id]
+            [Number(id)]
         );
 
         if (!eventoRows.length) {
+            if (req.file) {
+                eliminarArchivoSiExiste(`/uploads/eventos/${req.file.filename}`);
+            }
+
             return res.status(404).json({
                 ok: false,
                 message: 'Evento no encontrado'
@@ -291,35 +412,25 @@ router.put('/:id', upload, async (req, res) => {
 
         const eventoActual = eventoRows[0];
         let imagenUrl = eventoActual.imagen_url || null;
+        const imagenAnterior = eventoActual.imagen_url || null;
 
         if (req.file) {
-            eliminarArchivoSiExiste(imagenUrl);
             imagenUrl = `/uploads/eventos/${req.file.filename}`;
         }
 
-        const {
-            titulo,
-            descripcion,
-            categoria,
-            lugar,
-            direccion,
-            ciudad,
-            fecha_evento,
-            fecha_fin_evento,
-            organizador,
-            estado,
-            precio
-        } = req.body;
+        const { errores, dataNormalizada } = validarCamposEvento(req.body || {});
 
-        if (!titulo || !lugar || !fecha_evento) {
+        if (errores.length > 0) {
+            if (req.file) {
+                eliminarArchivoSiExiste(imagenUrl);
+            }
+
             return res.status(400).json({
                 ok: false,
-                message: 'Título, lugar y fecha inicio son obligatorios'
+                message: errores[0],
+                errors: errores
             });
         }
-
-        let precioNum = parseFloat(precio);
-        if (isNaN(precioNum)) precioNum = 0.00;
 
         const sql = `
             UPDATE eventos SET
@@ -340,20 +451,24 @@ router.put('/:id', upload, async (req, res) => {
         `;
 
         await db.execute(sql, [
-            titulo,
-            descripcion || null,
-            categoria || null,
-            lugar,
-            direccion || null,
-            ciudad || null,
-            fecha_evento,
-            fecha_fin_evento || null,
+            dataNormalizada.titulo,
+            dataNormalizada.descripcion,
+            dataNormalizada.categoria,
+            dataNormalizada.lugar,
+            dataNormalizada.direccion,
+            dataNormalizada.ciudad,
+            dataNormalizada.fecha_evento,
+            dataNormalizada.fecha_fin_evento,
             imagenUrl,
-            organizador || null,
-            estado || 'borrador',
-            precioNum,
-            id
+            dataNormalizada.organizador,
+            dataNormalizada.estado || 'borrador',
+            dataNormalizada.precio,
+            Number(id)
         ]);
+
+        if (req.file && imagenAnterior && imagenAnterior !== imagenUrl) {
+            eliminarArchivoSiExiste(imagenAnterior);
+        }
 
         return res.json({
             ok: true,
@@ -362,9 +477,14 @@ router.put('/:id', upload, async (req, res) => {
         });
     } catch (error) {
         console.error('❌ ERROR ACTUALIZAR EVENTO:', error);
+
+        if (req.file) {
+            eliminarArchivoSiExiste(`/uploads/eventos/${req.file.filename}`);
+        }
+
         return res.status(500).json({
             ok: false,
-            message: error.message || 'Error al actualizar evento'
+            message: 'Error al actualizar evento'
         });
     }
 });
@@ -376,9 +496,16 @@ router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El id del evento es inválido'
+            });
+        }
+
         const [eventoRows] = await db.execute(
             `SELECT imagen_url FROM eventos WHERE id_evento = ?`,
-            [id]
+            [Number(id)]
         );
 
         if (!eventoRows.length) {
@@ -390,7 +517,7 @@ router.delete('/:id', async (req, res) => {
 
         eliminarArchivoSiExiste(eventoRows[0].imagen_url);
 
-        await db.execute(`DELETE FROM eventos WHERE id_evento = ?`, [id]);
+        await db.execute(`DELETE FROM eventos WHERE id_evento = ?`, [Number(id)]);
 
         return res.json({
             ok: true,
@@ -400,7 +527,7 @@ router.delete('/:id', async (req, res) => {
         console.error('❌ ERROR ELIMINAR EVENTO:', error);
         return res.status(500).json({
             ok: false,
-            message: error.message || 'Error al eliminar evento'
+            message: 'Error al eliminar evento'
         });
     }
 });
@@ -419,7 +546,7 @@ router.use((err, req, res, next) => {
     if (err) {
         return res.status(400).json({
             ok: false,
-            message: err.message
+            message: err.message || 'Error en la carga del archivo'
         });
     }
 

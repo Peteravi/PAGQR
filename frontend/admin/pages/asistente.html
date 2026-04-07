@@ -35,7 +35,7 @@
                     <!-- MENÚ -->
                     <ul class="nav flex-column px-2 flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link active" href="/admin">
+                            <a class="nav-link" href="/admin">
                                 <i class="bi bi-calendar-event me-2"></i>
                                 <span>Eventos</span>
                                 <span class="badge bg-primary ms-auto" id="badgeEventos">0</span>
@@ -50,7 +50,7 @@
                         </li>
 
                         <li class="nav-item">
-                            <a class="nav-link" href="/asistentes">
+                            <a class="nav-link active" href="/asistentes">
                                 <i class="bi bi-people me-2"></i>
                                 <span>Asistentes</span>
                                 <span class="badge bg-info ms-auto" id="badgeAsistentes">0</span>
@@ -68,6 +68,7 @@
 
                 </div>
             </nav>
+
             <!-- CONTENIDO -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content py-4">
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -122,27 +123,171 @@
                     </div>
                 </div>
 
-                <!-- VALIDACIÓN MANUAL -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body">
-                        <h5 class="mb-3">Validación manual</h5>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <input type="text" id="codigoValidacionManual" class="form-control"
-                                    placeholder="Código de entrada">
+                <!-- CONTROL DE ACCESO -->
+                <div class="row g-4 mb-4">
+                    <!-- ESCÁNER QR -->
+                    <div class="col-xl-7">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                    <div>
+                                        <h5 class="mb-1">Escaneo QR con cámara</h5>
+                                        <p class="text-muted small mb-0">
+                                            Usa esta sección para validar entradas desde celular o laptop.
+                                        </p>
+                                    </div>
+                                    <span class="badge rounded-pill text-bg-light scanner-badge"
+                                        id="scannerEstadoBadge">
+                                        Cámara inactiva
+                                    </span>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <input type="text" id="puntoAccesoCamara" class="form-control"
+                                            placeholder="Punto de acceso">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" id="validadoPorCamara" class="form-control"
+                                            placeholder="Validado por" value="Admin">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select id="scannerCameraSelect" class="form-select" disabled>
+                                            <option value="">Selecciona una cámara</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    <button class="btn btn-primary" id="btnIniciarCamara" type="button">
+                                        <i class="bi bi-camera-video me-2"></i>Iniciar cámara
+                                    </button>
+
+                                    <button class="btn btn-outline-secondary" id="btnDetenerCamara" type="button"
+                                        disabled>
+                                        <i class="bi bi-camera-video-off me-2"></i>Detener cámara
+                                    </button>
+
+                                    <button class="btn btn-outline-dark" id="btnLimpiarResultadoCamara" type="button">
+                                        <i class="bi bi-eraser me-2"></i>Limpiar resultado
+                                    </button>
+                                </div>
+
+                                <div class="scanner-wrapper mb-3">
+                                    <div id="qr-reader" class="qr-reader-box">
+                                        <div class="scanner-placeholder" id="scannerPlaceholder">
+                                            <i class="bi bi-upc-scan scanner-placeholder-icon"></i>
+                                            <p class="mb-1 fw-semibold">Escáner listo para configurarse</p>
+                                            <small class="text-muted">
+                                                Presiona “Iniciar cámara” para comenzar a leer códigos QR.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="scanner-info-grid">
+                                    <div class="scanner-info-item">
+                                        <div class="scanner-info-label">Último código leído</div>
+                                        <div class="scanner-info-value" id="scannerUltimoCodigo">Sin lecturas</div>
+                                    </div>
+                                    <div class="scanner-info-item">
+                                        <div class="scanner-info-label">Estado actual</div>
+                                        <div class="scanner-info-value" id="scannerEstadoTexto">Esperando acción</div>
+                                    </div>
+                                </div>
+
+                                <div class="scanner-result mt-3 d-none" id="scannerResultadoCard">
+                                    <div class="scanner-result-header">
+                                        <div>
+                                            <div class="scanner-result-title" id="scannerResultadoTitulo">Resultado
+                                            </div>
+                                            <div class="scanner-result-subtitle" id="scannerResultadoSubtitulo">
+                                                Aún no se ha validado ninguna entrada.
+                                            </div>
+                                        </div>
+                                        <span class="scanner-result-badge" id="scannerResultadoBadge">---</span>
+                                    </div>
+
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-6">
+                                            <div class="scanner-detail-card">
+                                                <div class="scanner-detail-label">Asistente</div>
+                                                <div class="scanner-detail-value" id="scannerDetalleAsistente">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="scanner-detail-card">
+                                                <div class="scanner-detail-label">Evento</div>
+                                                <div class="scanner-detail-value" id="scannerDetalleEvento">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="scanner-detail-card">
+                                                <div class="scanner-detail-label">Tipo de entrada</div>
+                                                <div class="scanner-detail-value" id="scannerDetalleTipoEntrada">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="scanner-detail-card">
+                                                <div class="scanner-detail-label">Estado</div>
+                                                <div class="scanner-detail-value" id="scannerDetalleEstado">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="scanner-detail-card">
+                                                <div class="scanner-detail-label">Mensaje</div>
+                                                <div class="scanner-detail-value" id="scannerDetalleMensaje">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="scanner-detail-card">
+                                                <div class="scanner-detail-label">Código validado</div>
+                                                <div class="scanner-detail-value text-break" id="scannerDetalleCodigo">-
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
-                            <div class="col-md-3">
-                                <input type="text" id="puntoAccesoManual" class="form-control"
-                                    placeholder="Punto de acceso">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" id="validadoPorManual" class="form-control"
-                                    placeholder="Validado por" value="Admin">
-                            </div>
-                            <div class="col-md-2">
-                                <button class="btn btn-primary w-100" id="btnValidarManual" type="button">
-                                    <i class="bi bi-check-circle me-1"></i>Validar
-                                </button>
+                        </div>
+                    </div>
+
+                    <!-- VALIDACIÓN MANUAL -->
+                    <div class="col-xl-5">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="mb-3">Validación manual</h5>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <input type="text" id="codigoValidacionManual" class="form-control"
+                                            placeholder="Código de entrada">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" id="puntoAccesoManual" class="form-control"
+                                            placeholder="Punto de acceso">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" id="validadoPorManual" class="form-control"
+                                            placeholder="Validado por" value="Admin">
+                                    </div>
+                                    <div class="col-12">
+                                        <button class="btn btn-primary w-100" id="btnValidarManual" type="button">
+                                            <i class="bi bi-check-circle me-1"></i>Validar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <hr class="my-4">
+
+                                <div class="manual-help">
+                                    <h6 class="mb-2">Uso recomendado</h6>
+                                    <ul class="mb-0 ps-3">
+                                        <li>Usa la cámara para validar rápido en puerta.</li>
+                                        <li>Usa validación manual si el QR no puede leerse.</li>
+                                        <li>Completa “Punto de acceso” para mejor trazabilidad.</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -299,7 +444,9 @@
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="/admin/assets/js/asistentes.js"></script>
+    <script src="/admin/assets/js/asistente-camera.js"></script>
 </body>
 
 </html>

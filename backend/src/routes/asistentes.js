@@ -250,7 +250,7 @@ router.get('/', async (req, res) => {
             message: error.message
         });
     }
-}); 
+});
 
 
 router.get('/export/csv', async (req, res) => {
@@ -383,9 +383,11 @@ router.post('/validar', async (req, res) => {
     const connection = await db.getConnection();
 
     try {
-        const { codigo, punto_acceso, validado_por } = req.body || {};
+        const codigo = String(req.body?.codigo || '').trim();
+        const punto_acceso = String(req.body?.punto_acceso || '').trim() || null;
+        const validado_por = String(req.body?.validado_por || '').trim() || null;
 
-        if (!codigo || !String(codigo).trim()) {
+        if (!codigo) {
             return res.status(400).json({
                 ok: false,
                 message: 'Debes enviar el código de la entrada'
@@ -414,7 +416,7 @@ router.post('/validar', async (req, res) => {
             WHERE en.codigo_entrada = ? OR en.codigo_qr = ?
             LIMIT 1
             FOR UPDATE
-        `, [String(codigo).trim(), String(codigo).trim()]);
+        `, [codigo, codigo]);
 
         if (!rows.length) {
             await connection.rollback();
@@ -433,8 +435,8 @@ router.post('/validar', async (req, res) => {
                 VALUES (?, ?, ?, 'duplicado', ?)
             `, [
                 entrada.id_entrada,
-                punto_acceso || null,
-                validado_por || null,
+                punto_acceso,
+                validado_por,
                 'La entrada ya fue utilizada anteriormente'
             ]);
 
@@ -451,7 +453,9 @@ router.post('/validar', async (req, res) => {
                     email_asistente: entrada.email_asistente,
                     evento: entrada.titulo,
                     tipo_entrada: entrada.tipo_nombre,
-                    fecha_uso: entrada.fecha_uso
+                    fecha_evento: entrada.fecha_evento,
+                    fecha_uso: entrada.fecha_uso,
+                    estado: entrada.estado
                 }
             });
         }
@@ -463,8 +467,8 @@ router.post('/validar', async (req, res) => {
                 VALUES (?, ?, ?, 'rechazado', ?)
             `, [
                 entrada.id_entrada,
-                punto_acceso || null,
-                validado_por || null,
+                punto_acceso,
+                validado_por,
                 'La entrada está cancelada'
             ]);
 
@@ -473,7 +477,18 @@ router.post('/validar', async (req, res) => {
             return res.status(400).json({
                 ok: false,
                 message: 'La entrada está cancelada',
-                resultado: 'rechazado'
+                resultado: 'rechazado',
+                entrada: {
+                    id_entrada: entrada.id_entrada,
+                    codigo_entrada: entrada.codigo_entrada,
+                    nombre_asistente: entrada.nombre_asistente,
+                    email_asistente: entrada.email_asistente,
+                    evento: entrada.titulo,
+                    tipo_entrada: entrada.tipo_nombre,
+                    fecha_evento: entrada.fecha_evento,
+                    fecha_uso: entrada.fecha_uso,
+                    estado: entrada.estado
+                }
             });
         }
 
@@ -491,8 +506,8 @@ router.post('/validar', async (req, res) => {
             VALUES (?, ?, ?, 'valido', ?)
         `, [
             entrada.id_entrada,
-            punto_acceso || null,
-            validado_por || null,
+            punto_acceso,
+            validado_por,
             'Ingreso validado correctamente'
         ]);
 
@@ -510,7 +525,8 @@ router.post('/validar', async (req, res) => {
                 evento: entrada.titulo,
                 tipo_entrada: entrada.tipo_nombre,
                 fecha_evento: entrada.fecha_evento,
-                fecha_uso: fechaUso
+                fecha_uso: fechaUso,
+                estado: 'usada'
             }
         });
     } catch (error) {
