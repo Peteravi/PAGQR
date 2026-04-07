@@ -25,12 +25,10 @@ class PayphoneService {
                 tax: 0,
                 currency: "USD",
                 clientTransactionId: data.orderId,
-
                 responseUrl: `${this.frontendUrl}/exito-pago.html`,
                 cancellationUrl: `${this.frontendUrl}/error-pago.html`
             };
 
-            // 2. Hacemos la llamada HTTP segura usando Axios
             const response = await axios.post(this.apiUrl, payload, {
                 headers: {
                     'Authorization': 'Bearer ' + this.token,
@@ -40,18 +38,14 @@ class PayphoneService {
 
             console.log('✅ Payphone preparó el pago exitosamente:', response.data);
 
-            // Retornamos la URL que Payphone nos generó para redirigir al cliente
-            return response.data.payUrl;
+            return response.data.paymentUrl;
 
         } catch (error) {
-            // 🕵️‍♂️ TRUCO NINJA: Capturamos la respuesta real de Payphone
             const chismeReal = error.response && error.response.data
                 ? JSON.stringify(error.response.data)
                 : error.message;
 
             console.error('❌ Error al conectar con Payphone:', chismeReal);
-
-            // Le mandamos el chisme a tu frontend para que salga en la alerta azul
             throw new Error(`Motivo del rechazo: ${chismeReal}`);
         }
     }
