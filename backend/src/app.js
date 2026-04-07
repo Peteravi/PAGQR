@@ -95,11 +95,15 @@ const csrfProtection = csrf({
 // El frontend público sí puede usar CSRF pidiéndolo por /api/admin-auth/csrf,
 // pero PayPhone no enviará ese token.
 app.use((req, res, next) => {
-    if (req.path === '/api/pagos/webhook') {
+    if (req.path.startsWith('/api/pagos/')) {
         return next();
     }
 
-    if (req.path.startsWith('/api/')) {
+    if (req.path === '/api/ordenes' && req.method === 'POST') {
+        return next();
+    }
+
+    if (req.path.startsWith('/api/admin-auth/')) {
         return csrfProtection(req, res, next);
     }
 

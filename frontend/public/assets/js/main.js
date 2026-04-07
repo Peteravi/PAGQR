@@ -702,7 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function generarLinkPago(idOrden) {
         const { response, data } = await fetchJson(API_PAGOS, {
             method: 'POST',
-            withCsrf: true,
+            withCsrf: false,
             headers: {
                 'Content-Type': 'application/json'
             },
