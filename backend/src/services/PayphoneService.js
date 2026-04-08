@@ -4,7 +4,7 @@ class PayphoneService {
     constructor() {
         this.token = process.env.PAYPHONE_TOKEN;
         this.appId = process.env.PAYPHONE_APP_ID;
-        this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        this.frontendUrl = process.env.FRONTEND_URL || 'https://pagqr-production.up.railway.app';
 
         this.apiUrl = 'https://pay.payphonetodoesposible.com/api/button/Prepare';
     }
