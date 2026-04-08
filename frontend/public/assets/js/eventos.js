@@ -776,10 +776,15 @@ async function generarLinkPago(idOrden) {
         })
     });
 
-    if (!response.ok || !data?.ok || !data.paymentUrl) {
+    if (
+        !response.ok ||
+        !data?.ok ||
+        (!data.paymentUrl && !data.payWithCard && !data.payWithPayPhone)
+    ) {
+        console.error("Respuesta backend:", data);
         throw new Error(data?.message || 'No se pudo generar el link de pago.');
     }
-
+    console.log("DATA BACK:", data);
     return data;
 }
 

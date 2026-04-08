@@ -700,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function generarLinkPago(idOrden) {
-        const { response, data } = await fetchJson(API_PAGOS, {
+        const { response, data } = await fetchJson(`${API_PAGOS}/generar-link`, {
             method: 'POST',
             withCsrf: false,
             headers: {
@@ -709,7 +709,12 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({ id_orden: idOrden })
         });
 
-        if (!response.ok || !data?.ok || !data.paymentUrl) {
+        if (
+            !response.ok ||
+            !data?.ok ||
+            (!data.paymentUrl && !data.payWithCard && !data.payWithPayPhone)
+        ) {
+            console.error("Respuesta backend:", data);
             throw new Error(data?.message || 'No se pudo generar el link de pago.');
         }
 
