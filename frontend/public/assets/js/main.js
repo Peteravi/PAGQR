@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const API_BASE = '/api/eventos-publicos';
     const API_ORDENES = '/api/ordenes';
-    const API_PAGOS = '/api/pagos/generar-link';
+    const API_PAGOS = '/api/pagos';
     const API_CSRF = '/api/admin-auth/csrf';
     const PLACEHOLDER_IMAGE = 'https://placehold.co/800x500?text=Evento';
 

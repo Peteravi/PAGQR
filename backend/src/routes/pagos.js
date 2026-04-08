@@ -147,12 +147,6 @@ router.post('/generar-link', async (req, res) => {
             });
         }
 
-        return res.json({
-            ok: true,
-            ...payData,
-            codigoOrden: orden.codigo_orden
-        });
-
         const [pagoExistente] = await db.execute(
             `SELECT id_pago FROM pagos WHERE transaccion_id = ? LIMIT 1`,
             [orden.codigo_orden]
@@ -168,7 +162,7 @@ router.post('/generar-link', async (req, res) => {
 
         return res.json({
             ok: true,
-            payUrl,
+            paymentUrl: payData.paymentUrl || payData.payWithCard || payData.payWithPayPhone,
             codigoOrden: orden.codigo_orden
         });
 
