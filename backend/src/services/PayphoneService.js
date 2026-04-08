@@ -38,7 +38,7 @@ class PayphoneService {
 
             console.log('✅ Payphone preparó el pago exitosamente:', response.data);
 
-            const urlPago = response.data.paymentUrl || response.data.payWithCard;
+            const urlPago = response.data.payWithCard || response.data.paymentUrl;
 
             if (urlPago) {
                 return urlPago;
