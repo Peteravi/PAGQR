@@ -10,10 +10,10 @@ class PayphoneService {
     }
 
     /**
-     * Prepara una transacción y obtiene la URL para el botón de pago.
-     * @param {Object} data - Datos de la compra
-     * @param {number} data.amount - Monto total en centavos (ej: 1500 para $15.00)
-     * @param {string} data.orderId - Tu código de orden (para ligarlo a tu DB)
+     * Prepara una transacción y obtiene las URLs de pago disponibles.
+     * @param {Object} data
+     * @param {number} data.amount - Monto en centavos (ej: 1500 = $15.00)
+     * @param {string} data.orderId - Código único de la orden
      */
     async prepararBotonPago(data) {
         try {
@@ -21,8 +21,8 @@ class PayphoneService {
                 appId: this.appId,
                 amount: data.amount,
                 amountWithoutTax: data.amount,
-                amountWithTax: 0,
                 tax: 0,
+                amountWithTax: 0,
                 currency: "USD",
                 clientTransactionId: data.orderId,
                 responseUrl: `${this.frontendUrl}/exito-pago.html`,
@@ -36,15 +36,25 @@ class PayphoneService {
                 }
             });
 
-            console.log('✅ Payphone preparó el pago exitosamente:', response.data);
+            console.log('✅ Payphone response completa:', JSON.stringify(response.data, null, 2));
 
-            const urlPago = response.data.payWithCard || response.data.paymentUrl;
+            const {
+                paymentUrl,
+                payWithCard,
+                payWithPayPhone
+            } = response.data;
 
-            if (urlPago) {
-                return urlPago;
-            } else {
-                throw new Error(`Payphone no devolvió URL. Respuesta: ${JSON.stringify(response.data)}`);
+            // Validamos que al menos una opción exista
+            if (!paymentUrl && !payWithCard && !payWithPayPhone) {
+                throw new Error(`Payphone no devolvió métodos de pago válidos: ${JSON.stringify(response.data)}`);
             }
+
+            // 🔥 Retornamos TODO (modo PRO)
+            return {
+                paymentUrl: paymentUrl || null,
+                payWithCard: payWithCard || null,
+                payWithPayPhone: payWithPayPhone || null
+            };
 
         } catch (error) {
             const chismeReal = error.response && error.response.data
@@ -55,9 +65,13 @@ class PayphoneService {
             throw new Error(`Motivo del rechazo: ${chismeReal}`);
         }
     }
+
+    /**
+     * Verifica el estado real de la transacción en Payphone
+     * @param {string|number} transactionId
+     */
     async verificarPago(transactionId) {
         try {
-            // URL para consultar el estado real de la transacción
             const verifyUrl = `https://pay.payphonetodoesposible.com/api/button/V2/${transactionId}`;
 
             const response = await axios.get(verifyUrl, {
@@ -66,10 +80,14 @@ class PayphoneService {
                 }
             });
 
-            // Retornamos la respuesta real de Payphone
             return response.data;
+
         } catch (error) {
-            console.error('❌ [Seguridad] Error verificando transacción en Payphone:', error.message);
+            const chismeReal = error.response && error.response.data
+                ? JSON.stringify(error.response.data)
+                : error.message;
+
+            console.error('❌ [Seguridad] Error verificando transacción en Payphone:', chismeReal);
             throw new Error('No se pudo verificar la autenticidad del pago');
         }
     }

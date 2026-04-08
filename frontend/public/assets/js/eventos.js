@@ -829,7 +829,7 @@ async function manejarPagoPayPhone() {
 
         reiniciarCompraCompleta();
 
-        window.location.href = pago.payUrl;
+        window.location.href = paymentUrl;
     } catch (error) {
         console.error('Error iniciando pago:', error);
 

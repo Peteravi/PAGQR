@@ -135,17 +135,23 @@ router.post('/generar-link', async (req, res) => {
             });
         }
 
-        const payUrl = await PayphoneService.prepararBotonPago({
+        const payData = await PayphoneService.prepararBotonPago({
             amount,
             orderId: orden.codigo_orden
         });
 
-        if (!isNonEmptyString(payUrl)) {
+        if (!payData.paymentUrl && !payData.payWithCard && !payData.payWithPayPhone) {
             return res.status(502).json({
                 ok: false,
-                message: 'El proveedor de pago no devolvió una URL válida'
+                message: 'El proveedor de pago no devolvió URLs válidas'
             });
         }
+
+        return res.json({
+            ok: true,
+            ...payData,
+            codigoOrden: orden.codigo_orden
+        });
 
         const [pagoExistente] = await db.execute(
             `SELECT id_pago FROM pagos WHERE transaccion_id = ? LIMIT 1`,
