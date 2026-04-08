@@ -171,7 +171,7 @@ router.post('/generar-link', async (req, res) => {
 
         return res.status(500).json({
             ok: false,
-            message: 'Error interno al generar el link de pago'
+            message: error.message || 'Error interno al generar el link de pago'
         });
     }
 });

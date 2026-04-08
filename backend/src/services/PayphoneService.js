@@ -38,7 +38,16 @@ class PayphoneService {
 
             console.log('✅ Payphone preparó el pago exitosamente:', response.data);
 
-            return response.data.paymentUrl;
+            // 🚀 MAGIA: Cubrimos todas las posibilidades de Payphone
+            if (response.data.paymentUrl) {
+                return response.data.paymentUrl;
+            } else if (response.data.paymentId) {
+                // Si nos da el ID, armamos nosotros la URL de cobro oficial
+                return `https://pay.payphonetodoesposible.com/pay?id=${response.data.paymentId}`;
+            } else {
+                // Si Payphone cambia el formato, mostramos el chisme completo
+                throw new Error(`Respuesta sin URL: ${JSON.stringify(response.data)}`);
+            }
 
         } catch (error) {
             const chismeReal = error.response && error.response.data
