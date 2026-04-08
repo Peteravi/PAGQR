@@ -709,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({ id_orden: idOrden })
         });
 
-        if (!response.ok || !data?.ok || !data.payUrl) {
+        if (!response.ok || !data?.ok || !data.paymentUrl) {
             throw new Error(data?.message || 'No se pudo generar el link de pago.');
         }
 
@@ -728,6 +728,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const payloadOrden = construirPayloadOrden();
             const orden = await crearOrden(payloadOrden);
             const pago = await generarLinkPago(orden.id_orden);
+            const url =
+                pago.paymentUrl ||
+                pago.payWithPayPhone ||
+                pago.payWithCard;
+
+            if (!url) {
+                throw new Error("No se pudo obtener URL de pago");
+            }
 
             guardarUltimaCompra({
                 id_orden: orden.id_orden,
@@ -755,13 +763,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 payment: {
                     provider: 'PayPhone',
                     transactionId: pago.transactionId || null,
-                    payUrl: pago.payUrl || ''
+                    payUrl: pago.paymentUrl || pago.payWithCard || pago.payWithPayPhone || ''
                 },
                 createdAt: new Date().toISOString()
             });
 
             limpiarFormularioCompra();
-            window.location.href = paymentUrl;
+            window.location.href = url;
         } catch (error) {
             console.error('Error iniciando pago:', error);
             limpiarFormularioCompra();

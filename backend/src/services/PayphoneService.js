@@ -44,12 +44,10 @@ class PayphoneService {
                 payWithPayPhone
             } = response.data;
 
-            // Validamos que al menos una opción exista
             if (!paymentUrl && !payWithCard && !payWithPayPhone) {
                 throw new Error(`Payphone no devolvió métodos de pago válidos: ${JSON.stringify(response.data)}`);
             }
 
-            // 🔥 Retornamos TODO (modo PRO)
             return {
                 paymentUrl: paymentUrl || null,
                 payWithCard: payWithCard || null,
