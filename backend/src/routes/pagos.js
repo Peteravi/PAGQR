@@ -467,7 +467,14 @@ router.post('/webhook', async (req, res) => {
     let connection;
 
     try {
-        const payload = req.body || {};
+        let payload = req.body || {};
+        if (Buffer.isBuffer(payload)) {
+            try {
+                payload = JSON.parse(payload.toString('utf8'));
+            } catch (e) {
+                console.error('❌ [Seguridad] Error traduciendo el Buffer de PayPhone:', e.message);
+            }
+        }
         const transactionId = payload.id;
         const clientTransactionId = normalizeString(payload.clientTransactionId);
 

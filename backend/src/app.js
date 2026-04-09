@@ -15,6 +15,7 @@ const entradasRoutes = require('./routes/entradas');
 const asistentesRoutes = require('./routes/asistentes');
 const adminAuthRoutes = require('./routes/admin-auth');
 const eventosPublicosRoutes = require('./routes/eventos-publicos');
+const facturasRoutes = require('./routes/facturas');
 
 const {
     requireAdminPage,
@@ -138,6 +139,7 @@ app.use('/api/admin-auth', adminAuthRoutes);
 // =====================================================
 
 // 🔓 Públicas
+app.use('/', facturasRoutes);
 app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/entradas', entradasRoutes);
 app.use('/api/pagos', pagosRouter);
