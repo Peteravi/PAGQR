@@ -60,6 +60,7 @@
                                 <div class="qr-box">
                                     <img src="assets/img/qr-demo.png" alt="QR de entrada">
                                 </div>
+                                <div class="qr-box" id="qrContenedorPrincipal" style="display: flex; justify-content: center;"></div>
                                 <p class="code-label">Código de ticket</p>
                                 <strong class="ticket-code">PAGQR-2026-000145</strong>
                             </div>
@@ -117,9 +118,10 @@
                             <p><strong>Código:</strong> PAGQR-2026-000145</p>
                         </div>
                         <div class="ticket-modal-right">
-                            <div class="modal-qr-box">
-                                <img src="assets/img/qr-demo.png" alt="QR ticket">
-                            </div>
+                        <div class="modal-qr-box">
+                            <img src="assets/img/qr-demo.png" alt="QR ticket">
+                        </div>
+                        <div class="modal-qr-box" id="qrContenedorModal" style="display: flex; justify-content: center;"></div>
                         </div>
                     </div>
                 </div>
@@ -157,6 +159,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="assets/js/confirmacion.js"></script>
 </body>
 

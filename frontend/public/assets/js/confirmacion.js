@@ -48,10 +48,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return data;
                 }
             }
-
             await sleep(2000);
         }
-
         throw new Error("Todavía no se generaron las entradas. Recarga la página en unos segundos.");
     }
 
@@ -66,7 +64,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const data = await cargarOrdenConPolling(purchase.id_orden);
         const orden = data.orden;
-        const ticket = data.entradas?.[0];
+        const ticket = data.entradas?.[0]; // Tomamos la primera entrada para mostrarla
 
         if (!ticket) {
             throw new Error("La orden existe, pero aún no tiene entradas generadas.");
@@ -77,38 +75,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         const statusBadge = document.querySelector(".status-badge");
         const heroTitle = document.querySelector(".hero-left h1");
         const heroText = document.querySelector(".hero-left p");
-        const qrImage = document.querySelector(".qr-box img");
         const ticketCode = document.querySelector(".ticket-code");
         const detailCards = document.querySelectorAll(".info-card");
         const ticketModalTitle = document.querySelector("#ticketModal .ticket-modal-left h3");
         const ticketModalParagraphs = document.querySelectorAll("#ticketModal .ticket-modal-left p");
-        const ticketModalQR = document.querySelector("#ticketModal .modal-qr-box img");
         const resumenRows = document.querySelectorAll("#resumenModal .resume-list div");
+        const qrBoxPrincipal = document.querySelector(".qr-box");
+        const qrBoxModal = document.querySelector("#ticketModal .modal-qr-box");
 
         const comprador = orden.comprador;
         const fullName = `${comprador.nombres || ""} ${comprador.apellidos || ""}`.trim();
 
-        if (statusBadge) {
-            statusBadge.innerHTML = `<span class="dot"></span>${orden.estado === "pagada" ? "Pagado" : orden.estado}`;
-        }
-
-        if (heroTitle) {
-            heroTitle.textContent = "¡Compra realizada con éxito!";
-        }
-
+        if (statusBadge) statusBadge.innerHTML = `<span class="dot"></span>${orden.estado === "pagada" ? "Pagado" : orden.estado}`;
+        if (heroTitle) heroTitle.textContent = "¡Compra realizada con éxito!";
         if (heroText) {
-            heroText.textContent =
-                `Tu compra para "${ticket.evento.nombre}" fue registrada correctamente. ` +
-                `Tu entrada digital ya está disponible con un código QR único para el acceso.`;
+            heroText.textContent = `Tu compra para "${ticket.evento.nombre}" fue registrada correctamente. Tu entrada digital ya está disponible con un código QR único para el acceso.`;
         }
 
-        if (qrImage) {
-            qrImage.src = ticket.qr_image;
-            qrImage.alt = ticket.codigo;
+        if (ticketCode) ticketCode.textContent = ticket.codigo;
+        if (qrBoxPrincipal) {
+            qrBoxPrincipal.innerHTML = ""; // Limpiamos la imagen quemada
+            new QRCode(qrBoxPrincipal, {
+                text: ticket.codigo, // Pasamos el código secreto del ticket
+                width: 160,
+                height: 160,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
         }
-
-        if (ticketCode) {
-            ticketCode.textContent = ticket.codigo;
+        if (qrBoxModal) {
+            qrBoxModal.innerHTML = ""; // Limpiamos la imagen quemada
+            new QRCode(qrBoxModal, {
+                text: ticket.codigo,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
         }
 
         if (detailCards.length >= 2) {
@@ -132,9 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        if (ticketModalTitle) {
-            ticketModalTitle.textContent = ticket.evento.nombre;
-        }
+        if (ticketModalTitle) ticketModalTitle.textContent = ticket.evento.nombre;
 
         if (ticketModalParagraphs.length >= 5) {
             ticketModalParagraphs[0].innerHTML = `<strong>Fecha:</strong> ${formatDate(ticket.evento.fecha_evento)}`;
@@ -144,17 +147,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             ticketModalParagraphs[4].innerHTML = `<strong>Código:</strong> ${ticket.codigo}`;
         }
 
-        if (ticketModalQR) {
-            ticketModalQR.src = ticket.qr_image;
-            ticketModalQR.alt = ticket.codigo;
-        }
-
         if (resumenRows.length >= 6) {
             resumenRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento.nombre}</strong>`;
             resumenRows[1].innerHTML = `<span>Cantidad</span><strong>${data.entradas.length}</strong>`;
             resumenRows[2].innerHTML = `<span>Precio unitario</span><strong>${formatPrice(ticket.tipo.precio)}</strong>`;
             resumenRows[3].innerHTML = `<span>Método de pago</span><strong>PayPhone</strong>`;
-            resumenRows[4].innerHTML = `<span>Estado</span><strong class="success-text">${orden.estado}</strong>`;
+            resumenRows[4].innerHTML = `<span>Estado</span><strong class="success-text">${orden.estado === 'pagada' ? 'Pagado' : orden.estado}</strong>`;
             resumenRows[5].innerHTML = `<span>Total</span><strong>${formatPrice(orden.total)}</strong>`;
         }
     } catch (error) {
