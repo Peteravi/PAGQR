@@ -347,6 +347,117 @@ router.post('/', async (req, res) => {
 });
 
 // =========================
+// OBTENER ORDEN POR CÓDIGO
+// IMPORTANTE: ESTA RUTA VA ANTES DE "/:id"
+// =========================
+router.get('/codigo/:codigo', async (req, res) => {
+    try {
+        const codigo = normalizeString(req.params.codigo);
+
+        if (!codigo) {
+            return res.status(400).json({
+                ok: false,
+                message: 'El código de la orden es inválido'
+            });
+        }
+
+        const [ordenRows] = await db.execute(
+            `
+            SELECT
+                o.id_orden,
+                o.codigo_orden,
+                o.subtotal,
+                o.iva,
+                o.total,
+                o.estado,
+                o.fecha_creacion,
+                o.fecha_actualizacion,
+                c.id_cliente,
+                c.nombres,
+                c.apellidos,
+                c.email,
+                c.telefono,
+                c.cedula_ruc,
+                c.direccion
+            FROM ordenes o
+            INNER JOIN clientes c ON c.id_cliente = o.id_cliente
+            WHERE o.codigo_orden = ?
+            LIMIT 1
+            `,
+            [codigo]
+        );
+
+        if (!ordenRows.length) {
+            return res.status(404).json({
+                ok: false,
+                message: 'Orden no encontrada'
+            });
+        }
+
+        const orden = ordenRows[0];
+
+        const [detalleRows] = await db.execute(
+            `
+            SELECT
+                od.id_detalle,
+                od.id_tipo_entrada,
+                od.cantidad,
+                od.precio_unitario,
+                od.subtotal,
+                te.nombre AS tipo_entrada,
+                te.id_evento,
+                e.titulo AS evento
+            FROM orden_detalle od
+            INNER JOIN tipos_entrada te ON te.id_tipo_entrada = od.id_tipo_entrada
+            INNER JOIN eventos e ON e.id_evento = te.id_evento
+            WHERE od.id_orden = ?
+            ORDER BY od.id_detalle ASC
+            `,
+            [orden.id_orden]
+        );
+
+        return res.json({
+            ok: true,
+            orden: {
+                id_orden: orden.id_orden,
+                codigo_orden: orden.codigo_orden,
+                subtotal: toNumber(orden.subtotal),
+                iva: toNumber(orden.iva),
+                total: toNumber(orden.total),
+                estado: orden.estado,
+                fecha_creacion: toIsoSafe(orden.fecha_creacion),
+                fecha_actualizacion: toIsoSafe(orden.fecha_actualizacion),
+                cliente: {
+                    id_cliente: orden.id_cliente,
+                    nombres: orden.nombres,
+                    apellidos: orden.apellidos,
+                    email: orden.email,
+                    telefono: orden.telefono,
+                    documento: orden.cedula_ruc,
+                    direccion: orden.direccion
+                },
+                detalle: detalleRows.map((row) => ({
+                    id_detalle: row.id_detalle,
+                    id_tipo_entrada: row.id_tipo_entrada,
+                    tipo_entrada: row.tipo_entrada,
+                    id_evento: row.id_evento,
+                    evento: row.evento,
+                    cantidad: toNumber(row.cantidad),
+                    precio_unitario: toNumber(row.precio_unitario),
+                    subtotal: toNumber(row.subtotal)
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error obteniendo orden por código:', error);
+        return res.status(500).json({
+            ok: false,
+            message: 'Error interno al obtener la orden por código'
+        });
+    }
+});
+
+// =========================
 // OBTENER ENTRADAS DE UNA ORDEN
 // IMPORTANTE: ESTA RUTA VA ANTES DE "/:id"
 // =========================
