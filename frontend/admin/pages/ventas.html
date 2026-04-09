@@ -5,19 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Ventas - PagQR</title>
-    <!-- Bootstrap 5 CSS -->
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <!-- CSS personalizado del admin -->
     <link rel="stylesheet" href="/admin/assets/css/admin.css">
-    <!-- CSS específico para ventas -->
     <link rel="stylesheet" href="/admin/assets/css/ventas.css">
 </head>
 
 <body>
-
-    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Cargando...</span>
@@ -28,7 +23,7 @@
         <div class="row g-0">
             <!-- SIDEBAR -->
             <nav class="col-md-3 col-lg-2 d-md-block sidebar">
-                <div class="position-sticky pt-4 d-flex flex-column" style="height: 100vh;">
+                <div class="position-sticky pt-4 d-flex flex-column sidebar-wrapper">
 
                     <div class="sidebar-header text-center mb-4">
                         <i class="bi bi-qr-code-scan brand-icon"></i>
@@ -67,264 +62,290 @@
                             Cerrar sesión
                         </button>
                     </div>
-
                 </div>
             </nav>
 
             <!-- MAIN -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                <div class="section-header d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div>
-                        <h1 class="section-title">
-                            <i class="bi bi-graph-up me-2"></i>Ventas
-                        </h1>
-                        <p class="section-subtitle mb-0">Resumen de ventas, órdenes, pagos y stock</p>
-                    </div>
+                <section class="section-header">
+                    <div class="section-header-content">
+                        <div>
+                            <h1 class="section-title">
+                                <i class="bi bi-graph-up me-2"></i>Ventas
+                            </h1>
+                            <p class="section-subtitle mb-0">
+                                Resumen de ventas, órdenes, pagos y stock
+                            </p>
+                        </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-light text-dark border" id="badgeUltimaActualizacion">
-                            Última actualización: --
-                        </span>
-                        <button id="btnRecargarVentas" class="btn btn-primary">
-                            <i class="bi bi-arrow-clockwise me-2"></i>
-                            Actualizar
-                        </button>
+                        <div class="section-actions">
+                            <span class="badge bg-light text-dark border badge-update" id="badgeUltimaActualizacion">
+                                Última actualización: --
+                            </span>
+
+                            <button id="btnRecargarVentas" class="btn btn-primary">
+                                <i class="bi bi-arrow-clockwise me-2"></i>
+                                Actualizar
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </section>
 
                 <!-- KPIs -->
-                <div class="row mb-4">
-                    <div class="col-md-3 mb-3">
-                        <div class="stats-card">
-                            <div class="stats-icon bg-primary-soft">
-                                <i class="bi bi-currency-dollar text-primary"></i>
+                <section class="mb-4">
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="stats-card">
+                                <div class="stats-icon bg-primary-soft">
+                                    <i class="bi bi-currency-dollar text-primary"></i>
+                                </div>
+                                <div class="stats-info">
+                                    <h3 class="stats-number" id="totalVendido">$0</h3>
+                                    <p class="stats-label">Total cobrado</p>
+                                </div>
                             </div>
-                            <div class="stats-info">
-                                <h3 class="stats-number" id="totalVendido">$0</h3>
-                                <p class="stats-label">Total cobrado</p>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="stats-card">
+                                <div class="stats-icon bg-success-soft">
+                                    <i class="bi bi-cart-check text-success"></i>
+                                </div>
+                                <div class="stats-info">
+                                    <h3 class="stats-number" id="totalOrdenes">0</h3>
+                                    <p class="stats-label">Órdenes totales</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="stats-card">
+                                <div class="stats-icon bg-info-soft">
+                                    <i class="bi bi-hourglass-split text-info"></i>
+                                </div>
+                                <div class="stats-info">
+                                    <h3 class="stats-number" id="ingresosReales">$0</h3>
+                                    <p class="stats-label">Monto pendiente</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="stats-card">
+                                <div class="stats-icon bg-danger-soft">
+                                    <i class="bi bi-x-circle text-danger"></i>
+                                </div>
+                                <div class="stats-info">
+                                    <h3 class="stats-number" id="ventasFallidas">0</h3>
+                                    <p class="stats-label">Órdenes fallidas</p>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <div class="col-md-3 mb-3">
-                        <div class="stats-card">
-                            <div class="stats-icon bg-success-soft">
-                                <i class="bi bi-cart-check text-success"></i>
-                            </div>
-                            <div class="stats-info">
-                                <h3 class="stats-number" id="totalOrdenes">0</h3>
-                                <p class="stats-label">Órdenes totales</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-3 mb-3">
-                        <div class="stats-card">
-                            <div class="stats-icon bg-info-soft">
-                                <i class="bi bi-hourglass-split text-info"></i>
-                            </div>
-                            <div class="stats-info">
-                                <h3 class="stats-number" id="ingresosReales">$0</h3>
-                                <p class="stats-label">Monto pendiente</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-3 mb-3">
-                        <div class="stats-card">
-                            <div class="stats-icon bg-danger-soft">
-                                <i class="bi bi-x-circle text-danger"></i>
-                            </div>
-                            <div class="stats-info">
-                                <h3 class="stats-number" id="ventasFallidas">0</h3>
-                                <p class="stats-label">Órdenes fallidas</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- RESUMEN ORDEN SELECCIONADA -->
-                <div class="table-card mb-4">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <!-- RESUMEN ORDEN -->
+                <section class="table-card mb-4">
+                    <div class="card-header-row">
                         <h3 class="mb-0">
                             <i class="bi bi-card-checklist me-2"></i>Resumen de la orden seleccionada
                         </h3>
-                        <span class="badge bg-light text-dark border" id="badgeOrdenSeleccionada">Ninguna orden
-                            seleccionada</span>
+                        <span class="badge bg-light text-dark border" id="badgeOrdenSeleccionada">
+                            Ninguna orden seleccionada
+                        </span>
                     </div>
 
-                    <div id="resumenOrdenSeleccionada">
-                        <div class="row g-2">
-                            <div class="col-md-3 col-sm-6">
-                                <div class="border rounded-3 p-2 h-100">
-                                    <small class="text-muted d-block">Total</small>
-                                    <strong id="ordenResumenTotal">$0</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6">
-                                <div class="border rounded-3 p-2 h-100">
-                                    <small class="text-muted d-block">Método de pago</small>
-                                    <strong id="ordenResumenMetodoPago">-</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6">
-                                <div class="border rounded-3 p-2 h-100">
-                                    <small class="text-muted d-block">Fecha creación</small>
-                                    <strong id="ordenResumenFechaCreacion">-</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6">
-                                <div class="border rounded-3 p-2 h-100">
-                                    <small class="text-muted d-block">Última actualización</small>
-                                    <strong id="ordenResumenFechaActualizacion">-</strong>
-                                </div>
+                    <div id="resumenOrdenSeleccionada" class="order-summary-grid">
+                        <div class="summary-box summary-box-wide">
+                            <small class="text-muted d-block">Código</small>
+                            <strong id="ordenResumenCodigo">-</strong>
+                        </div>
+
+                        <div class="summary-box summary-box-wide">
+                            <small class="text-muted d-block">Cliente</small>
+                            <strong id="ordenResumenCliente">-</strong>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Estado orden</small>
+                            <div id="ordenResumenEstadoOrden">-</div>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Estado pago</small>
+                            <div id="ordenResumenEstadoPago">-</div>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Entradas emitidas</small>
+                            <strong id="ordenResumenEntradas">0</strong>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Total</small>
+                            <strong id="ordenResumenTotal">$0</strong>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Método de pago</small>
+                            <strong id="ordenResumenMetodoPago">-</strong>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Fecha creación</small>
+                            <strong id="ordenResumenFechaCreacion">-</strong>
+                        </div>
+
+                        <div class="summary-box">
+                            <small class="text-muted d-block">Última actualización</small>
+                            <strong id="ordenResumenFechaActualizacion">-</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Gráfico -->
+                <section class="chart-card mb-4">
+                    <h3><i class="bi bi-calendar-week me-2"></i>Ventas por día</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="graficoVentas"></canvas>
+                    </div>
+                </section>
+
+                <!-- tablas superiores -->
+                <section class="row g-3">
+                    <div class="col-12 col-xl-6">
+                        <div class="table-card h-100">
+                            <h3><i class="bi bi-trophy me-2"></i>Ventas por Evento</h3>
+                            <div class="table-responsive table-scroll-x">
+                                <table class="table table-hover align-middle sales-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Evento</th>
+                                            <th>Entradas Vendidas</th>
+                                            <th>Total Generado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaVentasEvento">
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-
-
-                    <!-- Gráfico -->
-                    <div class="chart-card mb-4">
-                        <h3><i class="bi bi-calendar-week me-2"></i>Ventas por día</h3>
-                        <canvas id="graficoVentas" height="150"></canvas>
-                    </div>
-
-                    <!-- Tablas superiores -->
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <div class="table-card">
-                                <h3><i class="bi bi-trophy me-2"></i>Ventas por Evento</h3>
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Evento</th>
-                                                <th>Entradas Vendidas</th>
-                                                <th>Total Generado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaVentasEvento">
-                                            <tr>
-                                                <td colspan="3" class="text-center text-muted">Cargando...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-6 mb-4">
-                            <div class="table-card">
-                                <h3><i class="bi bi-box-seam me-2"></i>Control de Stock</h3>
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Evento</th>
-                                                <th>Tipo Entrada</th>
-                                                <th>Stock Total</th>
-                                                <th>Disponible</th>
-                                                <th>Vendidos</th>
-                                                <th>Estado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaStock">
-                                            <tr>
-                                                <td colspan="6" class="text-center text-muted">Cargando...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div class="col-12 col-xl-6">
+                        <div class="table-card h-100">
+                            <h3><i class="bi bi-box-seam me-2"></i>Control de Stock</h3>
+                            <div class="table-responsive table-scroll-x">
+                                <table class="table table-hover align-middle sales-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Evento</th>
+                                            <th>Tipo Entrada</th>
+                                            <th>Stock Total</th>
+                                            <th>Disponible</th>
+                                            <th>Vendidos</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaStock">
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <!-- ÓRDENES -->
-                    <div class="row">
-                        <div class="col-12 mb-4">
-                            <div class="table-card">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                    <h3 class="mb-0"><i class="bi bi-receipt me-2"></i>Órdenes</h3>
-                                    <small class="text-muted">Haz clic en “Ver” para cargar el detalle y resumen</small>
-                                </div>
+                <!-- ÓRDENES -->
+                <section class="row g-3 mt-1">
+                    <div class="col-12">
+                        <div class="table-card">
+                            <div class="card-header-row">
+                                <h3 class="mb-0"><i class="bi bi-receipt me-2"></i>Órdenes</h3>
+                                <small class="text-muted">Haz clic en “Ver” para cargar el detalle y resumen</small>
+                            </div>
 
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Código</th>
-                                                <th>Cliente</th>
-                                                <th>Total</th>
-                                                <th>Estado</th>
-                                                <th>Método Pago</th>
-                                                <th>Fecha</th>
-                                                <th>Acción</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaOrdenes">
-                                            <tr>
-                                                <td colspan="7" class="text-center text-muted">Cargando...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="table-responsive table-scroll-x">
+                                <table class="table table-hover align-middle sales-table orders-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Cliente</th>
+                                            <th>Total</th>
+                                            <th>Estado</th>
+                                            <th>Método Pago</th>
+                                            <th>Fecha</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaOrdenes">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- DETALLE + PAGOS -->
+                <section class="row g-3 mt-1">
+                    <div class="col-12 col-xl-6">
+                        <div class="table-card h-100">
+                            <h3><i class="bi bi-card-list me-2"></i>Detalle de Orden</h3>
+                            <div class="table-responsive table-scroll-x table-scroll-y detail-table-wrapper">
+                                <table class="table table-hover align-middle sales-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Evento</th>
+                                            <th>Tipo Entrada</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio</th>
+                                            <th>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaDetalleOrden">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">
+                                                Selecciona una orden para ver detalles
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-                    <!-- DETALLE + PAGOS -->
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <div class="table-card">
-                                <h3><i class="bi bi-card-list me-2"></i>Detalle de Orden</h3>
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Evento</th>
-                                                <th>Tipo Entrada</th>
-                                                <th>Cantidad</th>
-                                                <th>Precio</th>
-                                                <th>Subtotal</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaDetalleOrden">
-                                            <tr>
-                                                <td colspan="5" class="text-center text-muted">
-                                                    Selecciona una orden para ver detalles
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-6 mb-4">
-                            <div class="table-card">
-                                <h3><i class="bi bi-credit-card me-2"></i>Pagos</h3>
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Código Orden</th>
-                                                <th>Proveedor</th>
-                                                <th>Estado</th>
-                                                <th>Monto</th>
-                                                <th>Fecha Pago</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaPagos">
-                                            <tr>
-                                                <td colspan="5" class="text-center text-muted">Cargando...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div class="col-12 col-xl-6">
+                        <div class="table-card h-100">
+                            <h3><i class="bi bi-credit-card me-2"></i>Pagos</h3>
+                            <div class="table-responsive table-scroll-x table-scroll-y payments-table-wrapper">
+                                <table class="table table-hover align-middle sales-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código Orden</th>
+                                            <th>Proveedor</th>
+                                            <th>Estado</th>
+                                            <th>Monto</th>
+                                            <th>Fecha Pago</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaPagos">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">Cargando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
+                </section>
             </main>
         </div>
     </div>
@@ -344,10 +365,10 @@
     <!-- MODAL LOGOUT -->
     <div class="modal fade" id="logoutModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
+            <div class="modal-content border-0 shadow-lg logout-modal-content">
                 <div class="modal-body text-center p-4">
                     <div class="mb-3">
-                        <i class="bi bi-box-arrow-right text-danger" style="font-size: 2.5rem;"></i>
+                        <i class="bi bi-box-arrow-right text-danger logout-modal-icon"></i>
                     </div>
 
                     <h5 class="fw-bold">Cerrar sesión</h5>
@@ -357,7 +378,7 @@
                         <small>Tendrás que volver a iniciar sesión</small>
                     </p>
 
-                    <div class="d-flex justify-content-center gap-2">
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
                         <button class="btn btn-light" data-bs-dismiss="modal">
                             Cancelar
                         </button>
@@ -370,7 +391,6 @@
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/admin/assets/js/admin-ventas.js"></script>
