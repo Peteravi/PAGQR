@@ -550,3 +550,68 @@ body {
         font-size: 0.84rem;
     }
 }
+
+/* ÓRDENES: scroll horizontal + vertical dentro de la tarjeta */
+.orders-table-wrapper {
+    max-height: 360px;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+.orders-table {
+    min-width: 1100px;
+}
+
+/* encabezado fijo mientras haces scroll vertical */
+.orders-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+/* scrollbars */
+.orders-table-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.orders-table-wrapper::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 999px;
+}
+
+.orders-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 999px;
+}
+
+.orders-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-hover);
+}
+
+/* responsive */
+@media (max-width: 1199px) {
+    .orders-table-wrapper {
+        max-height: 320px;
+    }
+}
+
+@media (max-width: 767px) {
+    .orders-table-wrapper {
+        max-height: 260px;
+    }
+
+    .orders-table {
+        min-width: 980px;
+    }
+}
+
+@media (max-width: 575px) {
+    .orders-table-wrapper {
+        max-height: 220px;
+    }
+
+    .orders-table {
+        min-width: 900px;
+    }
+}

@@ -14,13 +14,21 @@ function toNumber(value) {
     return Number.isFinite(n) ? n : 0;
 }
 
+function isPositiveInteger(value) {
+    const n = Number(value);
+    return Number.isInteger(n) && n > 0;
+}
+
 function buildFilters(query) {
     const conditions = [];
     const params = [];
 
     if (query.evento && query.evento !== 'todos') {
-        conditions.push('en.id_evento = ?');
-        params.push(Number(query.evento));
+        const idEvento = Number(query.evento);
+        if (Number.isFinite(idEvento) && idEvento > 0) {
+            conditions.push('en.id_evento = ?');
+            params.push(idEvento);
+        }
     }
 
     if (query.estado && query.estado !== 'todos') {
@@ -141,6 +149,9 @@ const BASE_SQL = `
        AND od.id_tipo_entrada = en.id_tipo_entrada
 `;
 
+// -------------------------------
+// RESUMEN
+// -------------------------------
 router.get('/resumen', async (req, res) => {
     try {
         const [rows] = await db.execute(`
@@ -156,11 +167,11 @@ router.get('/resumen', async (req, res) => {
         return res.json({
             ok: true,
             resumen: {
-                total: Number(rows[0].total || 0),
-                generadas: Number(rows[0].generadas || 0),
-                enviadas: Number(rows[0].enviadas || 0),
-                usadas: Number(rows[0].usadas || 0),
-                canceladas: Number(rows[0].canceladas || 0)
+                total: Number(rows[0]?.total || 0),
+                generadas: Number(rows[0]?.generadas || 0),
+                enviadas: Number(rows[0]?.enviadas || 0),
+                usadas: Number(rows[0]?.usadas || 0),
+                canceladas: Number(rows[0]?.canceladas || 0)
             }
         });
     } catch (error) {
@@ -172,6 +183,9 @@ router.get('/resumen', async (req, res) => {
     }
 });
 
+// -------------------------------
+// EVENTOS
+// -------------------------------
 router.get('/eventos', async (req, res) => {
     try {
         const [rows] = await db.execute(`
@@ -206,6 +220,9 @@ router.get('/eventos', async (req, res) => {
     }
 });
 
+// -------------------------------
+// LISTADO
+// -------------------------------
 router.get('/', async (req, res) => {
     try {
         const page = Math.max(parseInt(req.query.page || '1', 10), 1);
@@ -234,13 +251,16 @@ router.get('/', async (req, res) => {
         const [rows] = await db.query(sql, params);
         const [countRows] = await db.execute(countSql, params);
 
+        const total = Number(countRows[0]?.total || 0);
+        const totalPages = Math.max(1, Math.ceil(total / limit));
         const asistentes = rows.map(mapAsistente);
 
         return res.json({
             ok: true,
-            total: Number(countRows[0].total || 0),
+            total,
             page,
             limit,
+            total_pages: totalPages,
             asistentes
         });
     } catch (error) {
@@ -252,7 +272,9 @@ router.get('/', async (req, res) => {
     }
 });
 
-
+// -------------------------------
+// EXPORT CSV
+// -------------------------------
 router.get('/export/csv', async (req, res) => {
     try {
         const { where, params } = buildFilters(req.query);
@@ -333,15 +355,25 @@ router.get('/export/csv', async (req, res) => {
     }
 });
 
+// -------------------------------
+// DETALLE
+// -------------------------------
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!isPositiveInteger(id)) {
+            return res.status(400).json({
+                ok: false,
+                message: 'ID de entrada inválido'
+            });
+        }
 
         const [rows] = await db.execute(`
             ${BASE_SQL}
             WHERE en.id_entrada = ?
             LIMIT 1
-        `, [id]);
+        `, [Number(id)]);
 
         if (!rows.length) {
             return res.status(404).json({
@@ -363,12 +395,20 @@ router.get('/:id', async (req, res) => {
             FROM validaciones_qr
             WHERE id_entrada = ?
             ORDER BY fecha_validacion DESC
-        `, [id]);
+        `, [Number(id)]);
+
+        const historialResumen = {
+            total: validaciones.length,
+            validos: validaciones.filter(v => v.resultado === 'valido').length,
+            duplicados: validaciones.filter(v => v.resultado === 'duplicado').length,
+            rechazados: validaciones.filter(v => v.resultado === 'rechazado').length
+        };
 
         return res.json({
             ok: true,
             asistente: entrada,
-            validaciones
+            validaciones,
+            historial_resumen: historialResumen
         });
     } catch (error) {
         console.error('❌ Error obteniendo asistente por ID:', error);
@@ -379,6 +419,9 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// -------------------------------
+// VALIDAR ENTRADA
+// -------------------------------
 router.post('/validar', async (req, res) => {
     const connection = await db.getConnection();
 
@@ -455,7 +498,11 @@ router.post('/validar', async (req, res) => {
                     tipo_entrada: entrada.tipo_nombre,
                     fecha_evento: entrada.fecha_evento,
                     fecha_uso: entrada.fecha_uso,
-                    estado: entrada.estado
+                    estado: entrada.estado,
+                    asistente: {
+                        nombre: entrada.nombre_asistente,
+                        email: entrada.email_asistente
+                    }
                 }
             });
         }
@@ -487,7 +534,11 @@ router.post('/validar', async (req, res) => {
                     tipo_entrada: entrada.tipo_nombre,
                     fecha_evento: entrada.fecha_evento,
                     fecha_uso: entrada.fecha_uso,
-                    estado: entrada.estado
+                    estado: entrada.estado,
+                    asistente: {
+                        nombre: entrada.nombre_asistente,
+                        email: entrada.email_asistente
+                    }
                 }
             });
         }
@@ -526,7 +577,11 @@ router.post('/validar', async (req, res) => {
                 tipo_entrada: entrada.tipo_nombre,
                 fecha_evento: entrada.fecha_evento,
                 fecha_uso: fechaUso,
-                estado: 'usada'
+                estado: 'usada',
+                asistente: {
+                    nombre: entrada.nombre_asistente,
+                    email: entrada.email_asistente
+                }
             }
         });
     } catch (error) {

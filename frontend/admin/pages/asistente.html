@@ -25,14 +25,12 @@
             <nav class="col-md-3 col-lg-2 d-md-block sidebar">
                 <div class="position-sticky pt-4 d-flex flex-column" style="height: 100vh;">
 
-                    <!-- HEADER -->
                     <div class="sidebar-header text-center mb-4">
                         <i class="bi bi-qr-code-scan brand-icon"></i>
                         <h2 class="brand-title mt-2">PagQR</h2>
                         <p class="brand-subtitle">Panel Admin</p>
                     </div>
 
-                    <!-- MENÚ -->
                     <ul class="nav flex-column px-2 flex-grow-1">
                         <li class="nav-item">
                             <a class="nav-link" href="/admin">
@@ -58,14 +56,12 @@
                         </li>
                     </ul>
 
-                    <!-- LOGOUT -->
                     <div class="px-3 pb-4">
                         <button id="btnLogout" class="btn btn-outline-danger w-100">
                             <i class="bi bi-box-arrow-right me-2"></i>
                             Cerrar sesión
                         </button>
                     </div>
-
                 </div>
             </nav>
 
@@ -79,45 +75,62 @@
                         <p class="section-subtitle mb-0">Lista y validación de asistentes registrados</p>
                     </div>
 
-                    <button class="btn btn-success" id="btnDescargarAsistentesCsv" type="button">
-                        <i class="bi bi-download me-2"></i>Descargar CSV
-                    </button>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-secondary" id="btnRefrescarAsistentesHeader" type="button">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Actualizar
+                        </button>
+                        <button class="btn btn-success" id="btnDescargarAsistentesCsv" type="button">
+                            <i class="bi bi-download me-2"></i>Descargar CSV
+                        </button>
+                    </div>
                 </div>
 
                 <!-- RESUMEN -->
                 <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="text-muted small">Total asistentes</div>
-                                <div class="fs-3 fw-bold" id="asistentesTotal">0</div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-primary-soft">
+                                <i class="bi bi-people-fill"></i>
+                            </div>
+                            <div class="stats-info">
+                                <div class="stats-label">Total asistentes</div>
+                                <div class="stats-number" id="asistentesTotal">0</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="text-muted small">Entradas usadas</div>
-                                <div class="fs-3 fw-bold" id="asistentesUsadas">0</div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-success-soft">
+                                <i class="bi bi-check2-circle"></i>
+                            </div>
+                            <div class="stats-info">
+                                <div class="stats-label">Entradas usadas</div>
+                                <div class="stats-number" id="asistentesUsadas">0</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="text-muted small">Pendientes</div>
-                                <div class="fs-3 fw-bold" id="asistentesPendientes">0</div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-warning-soft">
+                                <i class="bi bi-hourglass-split"></i>
+                            </div>
+                            <div class="stats-info">
+                                <div class="stats-label">Pendientes</div>
+                                <div class="stats-number" id="asistentesPendientes">0</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="text-muted small">Canceladas</div>
-                                <div class="fs-3 fw-bold" id="asistentesCanceladas">0</div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="stats-card">
+                            <div class="stats-icon bg-danger-soft">
+                                <i class="bi bi-x-circle"></i>
+                            </div>
+                            <div class="stats-info">
+                                <div class="stats-label">Canceladas</div>
+                                <div class="stats-number" id="asistentesCanceladas">0</div>
                             </div>
                         </div>
                     </div>
@@ -127,7 +140,7 @@
                 <div class="row g-4 mb-4">
                     <!-- ESCÁNER QR -->
                     <div class="col-xl-7">
-                        <div class="card border-0 shadow-sm h-100">
+                        <div class="card border-0 shadow-sm h-100 table-card">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                                     <div>
@@ -248,14 +261,13 @@
                                         </div>
                                     </div>
                                 </div>
-
                             </div>
                         </div>
                     </div>
 
                     <!-- VALIDACIÓN MANUAL -->
                     <div class="col-xl-5">
-                        <div class="card border-0 shadow-sm h-100">
+                        <div class="card border-0 shadow-sm h-100 table-card">
                             <div class="card-body">
                                 <h5 class="mb-3">Validación manual</h5>
                                 <div class="row g-3">
@@ -294,12 +306,12 @@
                 </div>
 
                 <!-- FILTROS -->
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-4 table-card">
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <input type="text" id="busquedaAsistentes" class="form-control"
-                                    placeholder="Buscar por nombre, email, cédula o evento">
+                                    placeholder="Buscar por nombre, email, cédula, código o evento">
                             </div>
 
                             <div class="col-md-3">
@@ -329,9 +341,9 @@
                 </div>
 
                 <!-- TABLA -->
-                <div class="card border-0 shadow-sm">
+                <div class="card border-0 shadow-sm table-card">
                     <div class="card-body">
-                        <div class="table-responsive">
+                        <div class="table-responsive asistentes-table-wrapper">
                             <table class="table table-hover align-middle mb-0" id="tablaAsistentes">
                                 <thead>
                                     <tr>
@@ -354,7 +366,6 @@
                             </table>
                         </div>
 
-                        <!-- PAGINACIÓN -->
                         <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
                             <div class="text-muted small" id="asistentesPaginacionInfo">
                                 Mostrando 0 - 0 de 0 registros
@@ -375,11 +386,124 @@
         </div>
     </div>
 
-    <!-- MODAL LOGOUT PRO -->
+    <!-- MODAL DETALLE ASISTENTE -->
+    <div class="modal fade" id="detalleAsistenteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1">Detalle del asistente</h5>
+                        <small class="text-muted" id="detalleAsistenteSubtitulo">Información de la entrada y
+                            validaciones</small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="detail-box">
+                                <small>Código entrada</small>
+                                <strong id="detalleCodigoEntrada">-</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="detail-box">
+                                <small>Estado</small>
+                                <div id="detalleEstadoEntrada">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="detail-box">
+                                <small>Código orden</small>
+                                <strong id="detalleCodigoOrden">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="detail-box">
+                                <small>Asistente</small>
+                                <strong id="detalleNombreAsistente">-</strong>
+                                <div class="text-muted small mt-1" id="detalleEmailAsistente">-</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="detail-box">
+                                <small>Comprador</small>
+                                <strong id="detalleComprador">-</strong>
+                                <div class="text-muted small mt-1" id="detalleDocumentoComprador">-</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="detail-box">
+                                <small>Evento</small>
+                                <strong id="detalleEventoTitulo">-</strong>
+                                <div class="text-muted small mt-1" id="detalleEventoFecha">-</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="detail-box">
+                                <small>Tipo de entrada</small>
+                                <strong id="detalleTipoEntrada">-</strong>
+                                <div class="text-muted small mt-1" id="detallePrecioEntrada">-</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="detail-box">
+                                <small>Fecha generación</small>
+                                <strong id="detalleFechaGeneracion">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="detail-box">
+                                <small>Fecha uso</small>
+                                <strong id="detalleFechaUso">-</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h6 class="mb-0">Historial de validaciones</h6>
+                        <span class="badge bg-light text-dark border" id="detalleHistorialCount">0 registros</span>
+                    </div>
+
+                    <div class="table-responsive detalle-validaciones-wrapper">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Punto de acceso</th>
+                                    <th>Validado por</th>
+                                    <th>Resultado</th>
+                                    <th>Observación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detalleValidacionesBody">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Sin validaciones registradas
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOGOUT -->
     <div class="modal fade" id="logoutModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem;">
-
                 <div class="modal-body text-center p-4">
                     <div class="mb-3">
                         <i class="bi bi-box-arrow-right text-danger" style="font-size: 2.5rem;"></i>
@@ -397,11 +521,10 @@
                             Cancelar
                         </button>
                         <button class="btn btn-danger" id="confirmLogoutBtn">
-                            Sí, salir
+                            Sí, cerrar sesión
                         </button>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -422,15 +545,15 @@
         function mostrarLoading(show) {
             const overlay = document.getElementById('loadingOverlay');
             if (!overlay) return;
-            overlay.style.display = show ? 'flex' : 'none';
+            overlay.classList.toggle('active', !!show);
         }
 
-        function mostrarToast(titulo, mensaje, tipo = 'info') {
+        function mostrarToast(message, tipo = 'info') {
             const toastEl = document.getElementById('toastNotification');
             const toastMsg = document.getElementById('toastMessage');
-            if (!toastEl || !toastMsg) return;
+            if (!toastEl || !toastMsg || typeof bootstrap === 'undefined') return;
 
-            toastMsg.textContent = `${titulo}: ${mensaje}`;
+            toastMsg.textContent = message;
             toastEl.className = 'toast align-items-center border-0';
 
             if (tipo === 'success') toastEl.classList.add('text-bg-success');

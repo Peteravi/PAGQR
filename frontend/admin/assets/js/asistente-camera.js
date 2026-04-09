@@ -38,6 +38,33 @@
         currentCameraId: ''
     };
 
+    function reproducirTono(tipo = 'success') {
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+
+            const audioCtx = new AudioContextClass();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = tipo === 'success' ? 880 : 280;
+            gainNode.gain.value = 0.04;
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+
+            setTimeout(() => {
+                oscillator.stop();
+                audioCtx.close().catch(() => { });
+            }, tipo === 'success' ? 120 : 220);
+        } catch (_) {
+            // sin sonido si el navegador no lo permite
+        }
+    }
+
     function setPlaceholderVisible(visible) {
         if (!cameraDom.placeholder) return;
         cameraDom.placeholder.style.display = visible ? 'flex' : 'none';
@@ -66,51 +93,48 @@
         }
     }
 
-    function escapeHtml(texto) {
-        if (texto === null || texto === undefined) return '-';
-        return String(texto)
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
+    function extraerEntrada(data) {
+        return data?.entrada || data?.asistente || data?.detalle || data || {};
     }
 
     function extraerNombreAsistente(data) {
+        const entrada = extraerEntrada(data);
         return (
+            entrada?.asistente?.nombre ||
+            entrada?.nombre_asistente ||
             data?.asistente?.nombre ||
-            data?.entrada?.asistente?.nombre ||
-            data?.detalle?.asistente?.nombre ||
             data?.nombre ||
             '-'
         );
     }
 
     function extraerEvento(data) {
+        const entrada = extraerEntrada(data);
         return (
+            entrada?.evento?.titulo ||
+            entrada?.evento ||
             data?.evento?.titulo ||
-            data?.entrada?.evento?.titulo ||
-            data?.detalle?.evento?.titulo ||
             data?.titulo_evento ||
             '-'
         );
     }
 
     function extraerTipoEntrada(data) {
+        const entrada = extraerEntrada(data);
         return (
+            entrada?.tipo_entrada?.nombre ||
+            entrada?.tipo_entrada ||
             data?.tipo_entrada?.nombre ||
-            data?.entrada?.tipo_entrada?.nombre ||
-            data?.detalle?.tipo_entrada?.nombre ||
             data?.tipo_entrada_nombre ||
             '-'
         );
     }
 
     function extraerEstado(data) {
+        const entrada = extraerEntrada(data);
         return (
+            entrada?.estado ||
             data?.estado ||
-            data?.entrada?.estado ||
-            data?.detalle?.estado ||
             (data?.ok ? 'válida' : 'rechazada') ||
             '-'
         );
@@ -127,12 +151,14 @@
 
         const lowerMessage = String(message).toLowerCase();
         const estado = String(extraerEstado(data)).toLowerCase();
+        const resultado = String(data?.resultado || '').toLowerCase();
 
         if (ok) {
             variant = 'success';
             badge = 'VÁLIDO';
             titulo = 'Entrada válida';
         } else if (
+            resultado === 'duplicado' ||
             lowerMessage.includes('usada') ||
             lowerMessage.includes('duplicad') ||
             estado.includes('usada')
@@ -141,6 +167,7 @@
             badge = 'DUPLICADO';
             titulo = 'Entrada ya utilizada';
         } else if (
+            resultado === 'rechazado' ||
             lowerMessage.includes('cancelad') ||
             estado.includes('cancelada')
         ) {
@@ -186,46 +213,22 @@
                     : 'is-warning'
         );
 
-        if (cameraDom.resultadoTitulo) {
-            cameraDom.resultadoTitulo.textContent = visual.titulo;
-        }
-
-        if (cameraDom.resultadoSubtitulo) {
-            cameraDom.resultadoSubtitulo.textContent = visual.subtitulo;
-        }
-
-        if (cameraDom.resultadoBadge) {
-            cameraDom.resultadoBadge.textContent = visual.badge;
-        }
-
-        if (cameraDom.detalleAsistente) {
-            cameraDom.detalleAsistente.textContent = visual.asistente;
-        }
-
-        if (cameraDom.detalleEvento) {
-            cameraDom.detalleEvento.textContent = visual.evento;
-        }
-
-        if (cameraDom.detalleTipoEntrada) {
-            cameraDom.detalleTipoEntrada.textContent = visual.tipoEntrada;
-        }
-
-        if (cameraDom.detalleEstado) {
-            cameraDom.detalleEstado.textContent = visual.estado;
-        }
-
-        if (cameraDom.detalleMensaje) {
-            cameraDom.detalleMensaje.textContent = visual.message;
-        }
-
-        if (cameraDom.detalleCodigo) {
-            cameraDom.detalleCodigo.textContent = codigo || '-';
-        }
+        if (cameraDom.resultadoTitulo) cameraDom.resultadoTitulo.textContent = visual.titulo;
+        if (cameraDom.resultadoSubtitulo) cameraDom.resultadoSubtitulo.textContent = visual.subtitulo;
+        if (cameraDom.resultadoBadge) cameraDom.resultadoBadge.textContent = visual.badge;
+        if (cameraDom.detalleAsistente) cameraDom.detalleAsistente.textContent = visual.asistente;
+        if (cameraDom.detalleEvento) cameraDom.detalleEvento.textContent = visual.evento;
+        if (cameraDom.detalleTipoEntrada) cameraDom.detalleTipoEntrada.textContent = visual.tipoEntrada;
+        if (cameraDom.detalleEstado) cameraDom.detalleEstado.textContent = visual.estado;
+        if (cameraDom.detalleMensaje) cameraDom.detalleMensaje.textContent = visual.message;
+        if (cameraDom.detalleCodigo) cameraDom.detalleCodigo.textContent = codigo || '-';
 
         if (visual.variant === 'success') {
             setEstado('Validación exitosa', 'Entrada válida');
+            reproducirTono('success');
         } else if (visual.variant === 'error') {
             setEstado('Lectura rechazada', visual.badge);
+            reproducirTono('error');
         } else {
             setEstado('Lectura completada con observación', visual.badge);
         }
@@ -407,7 +410,7 @@
     }
 
     function onScanFailure() {
-        // Error normal de lectura en tiempo real; no se muestra toast para evitar ruido.
+        // lectura fallida normal en tiempo real
     }
 
     async function onScanSuccess(decodedText) {
