@@ -36,6 +36,14 @@ function roundToTwo(value) {
     return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 }
 
+function normalizeString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeLower(value) {
+    return normalizeString(value).toLowerCase();
+}
+
 // =========================
 // CREAR ORDEN
 // =========================
@@ -360,6 +368,8 @@ router.get('/:id/entradas', async (req, res) => {
                 o.codigo_orden,
                 o.total,
                 o.estado,
+                o.fecha_creacion,
+                o.fecha_actualizacion,
                 c.nombres,
                 c.apellidos,
                 c.email,
@@ -382,6 +392,32 @@ router.get('/:id/entradas', async (req, res) => {
         }
 
         const orden = ordenRows[0];
+        const estadoOrden = normalizeLower(orden.estado);
+
+        const [pagoRows] = await db.execute(
+            `
+            SELECT
+                id_pago,
+                proveedor_pago,
+                transaccion_id,
+                referencia_pago,
+                authorization_code,
+                monto,
+                moneda,
+                estado,
+                fecha_pago,
+                fecha_creacion,
+                fecha_actualizacion
+            FROM pagos
+            WHERE id_orden = ?
+            ORDER BY id_pago DESC
+            LIMIT 1
+            `,
+            [id]
+        );
+
+        const pago = pagoRows.length ? pagoRows[0] : null;
+        const estadoPago = normalizeLower(pago?.estado);
 
         const [rows] = await db.execute(
             `
@@ -403,6 +439,7 @@ router.get('/:id/entradas', async (req, res) => {
 
                 te.id_tipo_entrada,
                 te.nombre AS tipo_nombre,
+                te.precio AS precio_tipo,
 
                 od.precio_unitario
             FROM entradas en
@@ -449,11 +486,38 @@ router.get('/:id/entradas', async (req, res) => {
                     tipo: {
                         id_tipo_entrada: row.id_tipo_entrada,
                         nombre: row.tipo_nombre,
-                        precio: toNumber(row.precio_unitario)
+                        precio: toNumber(row.precio_unitario, toNumber(row.precio_tipo))
                     }
                 };
             })
         );
+
+        const esperandoGeneracion =
+            entradas.length === 0 &&
+            (
+                estadoOrden === 'pagada' ||
+                estadoOrden === 'aprobada' ||
+                estadoPago === 'aprobado' ||
+                estadoPago === 'pagado' ||
+                estadoPago === 'completed'
+            );
+
+        const pagoPendiente =
+            entradas.length === 0 &&
+            (
+                estadoOrden === 'pendiente' ||
+                estadoPago === 'pendiente' ||
+                estadoPago === 'iniciado'
+            );
+
+        const pagoFallido =
+            entradas.length === 0 &&
+            (
+                estadoOrden === 'fallida' ||
+                estadoOrden === 'cancelada' ||
+                estadoPago === 'rechazado' ||
+                estadoPago === 'anulado'
+            );
 
         return res.json({
             ok: true,
@@ -462,6 +526,8 @@ router.get('/:id/entradas', async (req, res) => {
                 codigo_orden: orden.codigo_orden,
                 total: toNumber(orden.total),
                 estado: orden.estado,
+                fecha_creacion: toIsoSafe(orden.fecha_creacion),
+                fecha_actualizacion: toIsoSafe(orden.fecha_actualizacion),
                 comprador: {
                     nombres: orden.nombres,
                     apellidos: orden.apellidos,
@@ -471,6 +537,37 @@ router.get('/:id/entradas', async (req, res) => {
                     direccion: orden.direccion
                 }
             },
+            pago: pago
+                ? {
+                    id_pago: pago.id_pago,
+                    proveedor_pago: pago.proveedor_pago,
+                    transaccion_id: pago.transaccion_id,
+                    referencia_pago: pago.referencia_pago,
+                    authorization_code: pago.authorization_code,
+                    monto: toNumber(pago.monto),
+                    moneda: pago.moneda,
+                    estado: pago.estado,
+                    fecha_pago: toIsoSafe(pago.fecha_pago),
+                    fecha_creacion: toIsoSafe(pago.fecha_creacion),
+                    fecha_actualizacion: toIsoSafe(pago.fecha_actualizacion)
+                }
+                : null,
+            estado_consulta: {
+                entradas_generadas: entradas.length > 0,
+                total_entradas: entradas.length,
+                esperando_generacion: esperandoGeneracion,
+                pago_pendiente: pagoPendiente,
+                pago_fallido: pagoFallido
+            },
+            message: esperandoGeneracion
+                ? 'Pago confirmado, generando entradas...'
+                : pagoPendiente
+                    ? 'La orden todavía está pendiente de confirmación de pago'
+                    : pagoFallido
+                        ? 'La orden no fue aprobada y no tiene entradas generadas'
+                        : entradas.length > 0
+                            ? 'Entradas obtenidas correctamente'
+                            : 'La orden no tiene entradas generadas',
             entradas
         });
     } catch (error) {

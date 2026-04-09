@@ -2,6 +2,7 @@
    asistente.css
    Estilos completos para la página de Asistentes
    Basado en el diseño original del panel PagQR
+   MEJORADO: Responsividad completa
    ============================================ */
 
 :root {
@@ -952,62 +953,6 @@ body {
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .scanner-info-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .qr-reader-box,
-    .scanner-placeholder {
-        min-height: 300px;
-    }
-
-    .scanner-placeholder {
-        padding: 2rem 1.25rem;
-    }
-
-    .scanner-placeholder-icon {
-        font-size: 3rem;
-    }
-
-    #qr-reader__scan_region {
-        min-height: 260px;
-        padding: 0.75rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .scanner-badge {
-        width: 100%;
-        text-align: center;
-        justify-content: center;
-    }
-
-    .qr-reader-box,
-    .scanner-placeholder {
-        min-height: 265px;
-        border-radius: 1.2rem;
-    }
-
-    .scanner-result {
-        padding: 1.05rem;
-    }
-
-    .scanner-result-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .scanner-result-badge {
-        width: 100%;
-    }
-
-    .scanner-detail-card {
-        padding: 0.85rem 0.9rem;
-    }
-}
-
 /* =========================
    BOTÓN CERRAR SESIÓN
 ========================= */
@@ -1075,4 +1020,319 @@ body {
 #toastNotification.text-bg-primary {
     background: linear-gradient(135deg, #0d6efd, #0b5ed7);
     color: white;
+}
+
+/* ============================================
+   MEJORAS DE RESPONSIVIDAD
+   ============================================ */
+
+/* Tablets y pantallas medianas (max-width: 991px) */
+@media (max-width: 991.98px) {
+    .main-content {
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.75rem;
+    }
+
+    /* Stats cards en tablets: 2 por fila */
+    .row.g-3>[class*="col-md-3"] {
+        flex: 0 0 auto;
+        width: 50%;
+    }
+}
+
+/* Dispositivos móviles (max-width: 768px) */
+@media (max-width: 768px) {
+
+    /* Sidebar: se convierte en barra superior con scroll horizontal */
+    .sidebar {
+        position: relative;
+        height: auto;
+        min-height: auto;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 0.5rem 0;
+    }
+
+    .sidebar .position-sticky {
+        height: auto !important;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .sidebar-header {
+        margin-bottom: 0;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    .brand-icon {
+        font-size: 2rem;
+    }
+
+    .brand-title {
+        font-size: 1.25rem;
+    }
+
+    .brand-subtitle {
+        display: none;
+    }
+
+    .sidebar .nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 0.5rem;
+        padding: 0.5rem 0;
+    }
+
+    .sidebar .nav-item {
+        display: inline-block;
+    }
+
+    .sidebar .nav-link {
+        white-space: nowrap;
+        margin: 0;
+        padding: 0.5rem 1rem;
+    }
+
+    .sidebar .nav-link::before {
+        display: none;
+    }
+
+    .sidebar .nav-link.active {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+    }
+
+    #btnLogout {
+        margin-top: 0;
+        margin-left: auto;
+        flex-shrink: 0;
+        width: auto;
+        padding: 0.5rem 1rem;
+    }
+
+    /* Main content */
+    .main-content {
+        padding: 1rem;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+    }
+
+    /* Stats cards: 2 por fila en móviles medianos */
+    .row.g-3>[class*="col-md-3"] {
+        width: 50%;
+    }
+
+    /* En móviles pequeños, 1 por fila */
+    @media (max-width: 576px) {
+        .row.g-3>[class*="col-md-3"] {
+            width: 100%;
+        }
+    }
+
+    /* Tabla: scroll horizontal */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table thead th,
+    .table tbody td {
+        padding: 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    /* Botones de acción en tabla: apilar en móvil */
+    .table tbody td .btn-group,
+    .table tbody td .d-flex {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .table tbody td .btn-sm {
+        width: 100%;
+    }
+
+    /* Filtros: apilar verticalmente */
+    .card-body .row.g-3>div {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+
+    /* Scanner */
+    .scanner-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .qr-reader-box,
+    .scanner-placeholder {
+        min-height: 300px;
+    }
+
+    .scanner-placeholder {
+        padding: 2rem 1.25rem;
+    }
+
+    .scanner-placeholder-icon {
+        font-size: 3rem;
+    }
+
+    .scanner-result-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .scanner-result-badge {
+        width: 100%;
+        text-align: center;
+    }
+
+    .scanner-result .row.g-3>.col-md-6 {
+        width: 100%;
+    }
+
+    /* Botones de cámara: apilar */
+    .d-flex.flex-wrap.gap-2 {
+        flex-direction: column;
+    }
+
+    .d-flex.flex-wrap.gap-2 .btn {
+        width: 100%;
+    }
+
+    /* Validación manual */
+    .col-xl-5 .row.g-3>div {
+        width: 100%;
+    }
+
+    /* Paginación */
+    .d-flex.justify-content-between.align-items-center {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .d-flex.justify-content-between.align-items-center .d-flex.gap-2 {
+        justify-content: center;
+    }
+}
+
+/* Móviles muy pequeños (max-width: 480px) */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 0.75rem;
+    }
+
+    .stats-number {
+        font-size: 1.5rem;
+    }
+
+    .stats-label {
+        font-size: 0.75rem;
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+    }
+
+    .btn-action,
+    #btnDescargarAsistentesCsv {
+        width: 100%;
+        text-align: center;
+    }
+
+    .table thead th,
+    .table tbody td {
+        padding: 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    /* Ajustes de modal para móvil */
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+    }
+}
+
+/* Orientación landscape en móviles */
+@media (max-width: 768px) and (orientation: landscape) {
+    .sidebar {
+        white-space: normal;
+    }
+
+    .sidebar .position-sticky {
+        flex-wrap: nowrap;
+    }
+
+    .qr-reader-box,
+    .scanner-placeholder {
+        min-height: 260px;
+    }
+
+    #qr-reader__scan_region {
+        min-height: 240px;
+    }
+}
+
+/* Ajustes para tablets en modo landscape */
+@media (min-width: 768px) and (max-width: 991.98px) and (orientation: landscape) {
+    .main-content {
+        padding: 1.5rem;
+    }
+
+    .row.g-3>[class*="col-md-3"] {
+        width: 25%;
+    }
+}
+
+/* Asegurar que el contenedor de la tabla no se desborde */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Mejora de toques en elementos interactivos para móvil */
+@media (hover: none) and (pointer: coarse) {
+
+    .btn,
+    .nav-link,
+    .sidebar .nav-link,
+    #btnLogout {
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active,
+    .nav-link:active {
+        transform: scale(0.97);
+        transition: transform 0.05s ease;
+    }
 }

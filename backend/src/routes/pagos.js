@@ -1,5 +1,7 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
+
 const db = require('../config/db');
 const PayphoneService = require('../services/PayphoneService');
 const OrderBusiness = require('../business/OrderBusiness');
@@ -23,6 +25,21 @@ function normalizeString(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeLower(value) {
+    return normalizeString(value).toLowerCase();
+}
+
+function safeJsonStringify(value) {
+    try {
+        return JSON.stringify(value ?? null);
+    } catch (error) {
+        return JSON.stringify({
+            serialization_error: true,
+            message: error.message
+        });
+    }
+}
+
 function isApprovedTransaction(pagoReal) {
     if (!pagoReal || typeof pagoReal !== 'object') return false;
 
@@ -32,11 +49,28 @@ function isApprovedTransaction(pagoReal) {
     return transactionStatus === 'approved' || statusCode === 3;
 }
 
+function mapGatewayStatusToPagoEstado(pagoReal) {
+    const status = normalizeLower(pagoReal?.transactionStatus);
+    const statusCode = Number(pagoReal?.statusCode);
+
+    if (status === 'approved' || statusCode === 3) return 'aprobado';
+    if (status === 'pending') return 'pendiente';
+    if (status === 'canceled' || status === 'cancelled' || status === 'voided') return 'anulado';
+    if (status === 'refunded') return 'reembolsado';
+
+    return 'rechazado';
+}
+
+function generateUniqueCode(prefix = 'ENT') {
+    const now = Date.now().toString(36).toUpperCase();
+    const rand = crypto.randomBytes(6).toString('hex').toUpperCase();
+    return `${prefix}-${now}-${rand}`;
+}
+
 async function checkIfOrderIsPaidSafe(codigoOrden) {
     if (!isNonEmptyString(codigoOrden)) return false;
 
     try {
-        // Si existe el método en OrderBusiness, se usa.
         if (
             OrderBusiness &&
             typeof OrderBusiness.checkIfOrderIsPaid === 'function'
@@ -44,11 +78,15 @@ async function checkIfOrderIsPaidSafe(codigoOrden) {
             return await OrderBusiness.checkIfOrderIsPaid(codigoOrden);
         }
 
-        // Fallback seguro para no romper si el método no existe.
         const [rows] = await db.execute(
             `
             SELECT
                 o.estado AS estado_orden,
+                (
+                    SELECT COUNT(*)
+                    FROM entradas en
+                    WHERE en.id_orden = o.id_orden
+                ) AS total_entradas,
                 p.estado AS estado_pago
             FROM ordenes o
             LEFT JOIN pagos p ON p.id_orden = o.id_orden
@@ -61,20 +99,267 @@ async function checkIfOrderIsPaidSafe(codigoOrden) {
 
         if (rows.length === 0) return false;
 
-        const estadoOrden = normalizeString(rows[0].estado_orden).toLowerCase();
-        const estadoPago = normalizeString(rows[0].estado_pago).toLowerCase();
+        const estadoOrden = normalizeLower(rows[0].estado_orden);
+        const estadoPago = normalizeLower(rows[0].estado_pago);
+        const totalEntradas = Number(rows[0].total_entradas || 0);
 
         return (
             estadoOrden === 'pagada' ||
             estadoOrden === 'aprobada' ||
             estadoPago === 'aprobado' ||
             estadoPago === 'pagado' ||
-            estadoPago === 'completed'
+            estadoPago === 'completed' ||
+            totalEntradas > 0
         );
     } catch (error) {
         console.error('❌ Error verificando si la orden ya fue pagada:', error.message);
         throw error;
     }
+}
+
+/**
+ * Obtiene la referencia de autorización desde Payphone sin romper si cambia el nombre del campo.
+ */
+function getAuthorizationCodeFromGateway(pagoReal) {
+    return normalizeString(
+        pagoReal?.authorizationCode ||
+        pagoReal?.authorization_code ||
+        pagoReal?.authorization ||
+        pagoReal?.authCode ||
+        pagoReal?.cardAuthorizationCode ||
+        ''
+    ) || null;
+}
+
+/**
+ * Obtiene una referencia útil del gateway sin depender de un solo nombre de campo.
+ */
+function getGatewayReference(pagoReal, fallbackClientTransactionId) {
+    return normalizeString(
+        pagoReal?.clientTransactionId ||
+        pagoReal?.reference ||
+        pagoReal?.referenceCode ||
+        pagoReal?.transactionId ||
+        fallbackClientTransactionId ||
+        ''
+    ) || null;
+}
+
+/**
+ * Inserta entradas reales de la orden.
+ * No duplica si ya existen entradas para la orden.
+ */
+async function createEntriesForOrder(connection, orderRow) {
+    if (!orderRow || !isPositiveInteger(orderRow.id_orden)) {
+        throw new Error('Orden inválida para generar entradas');
+    }
+
+    const [existingEntriesRows] = await connection.execute(
+        `
+        SELECT COUNT(*) AS total
+        FROM entradas
+        WHERE id_orden = ?
+        `,
+        [orderRow.id_orden]
+    );
+
+    const existingEntries = Number(existingEntriesRows[0]?.total || 0);
+    if (existingEntries > 0) {
+        return {
+            created: 0,
+            alreadyExisted: true
+        };
+    }
+
+    const [detalleRows] = await connection.execute(
+        `
+        SELECT
+            od.id_detalle,
+            od.id_tipo_entrada,
+            od.cantidad,
+            od.precio_unitario,
+            te.id_evento,
+            te.nombre AS nombre_tipo,
+            c.nombres,
+            c.apellidos,
+            c.email
+        FROM orden_detalle od
+        INNER JOIN ordenes o ON o.id_orden = od.id_orden
+        INNER JOIN tipos_entrada te ON te.id_tipo_entrada = od.id_tipo_entrada
+        INNER JOIN clientes c ON c.id_cliente = o.id_cliente
+        WHERE od.id_orden = ?
+        ORDER BY od.id_detalle ASC
+        `,
+        [orderRow.id_orden]
+    );
+
+    if (!detalleRows.length) {
+        throw new Error(`La orden ${orderRow.codigo_orden} no tiene detalle para generar entradas`);
+    }
+
+    let created = 0;
+
+    for (const detalle of detalleRows) {
+        const cantidad = Number(detalle.cantidad || 0);
+
+        if (!Number.isInteger(cantidad) || cantidad <= 0) {
+            throw new Error(`Cantidad inválida en detalle de orden ${orderRow.codigo_orden}`);
+        }
+
+        const nombreAsistenteBase = normalizeString(`${detalle.nombres || ''} ${detalle.apellidos || ''}`) || null;
+        const emailAsistenteBase = normalizeString(detalle.email) || null;
+
+        for (let i = 0; i < cantidad; i += 1) {
+            let codigoEntrada = '';
+            let codigoQr = '';
+            let inserted = false;
+            let attempts = 0;
+
+            while (!inserted && attempts < 5) {
+                attempts += 1;
+                codigoEntrada = generateUniqueCode('ENT');
+                codigoQr = generateUniqueCode('QR');
+
+                try {
+                    await connection.execute(
+                        `
+                        INSERT INTO entradas (
+                            id_orden,
+                            id_evento,
+                            id_tipo_entrada,
+                            codigo_entrada,
+                            codigo_qr,
+                            nombre_asistente,
+                            email_asistente,
+                            estado,
+                            fecha_generacion
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'generada', NOW())
+                        `,
+                        [
+                            orderRow.id_orden,
+                            detalle.id_evento,
+                            detalle.id_tipo_entrada,
+                            codigoEntrada,
+                            codigoQr,
+                            nombreAsistenteBase,
+                            emailAsistenteBase
+                        ]
+                    );
+
+                    inserted = true;
+                    created += 1;
+                } catch (insertError) {
+                    const isDuplicate =
+                        insertError &&
+                        (
+                            insertError.code === 'ER_DUP_ENTRY' ||
+                            insertError.errno === 1062
+                        );
+
+                    if (!isDuplicate || attempts >= 5) {
+                        throw insertError;
+                    }
+                }
+            }
+        }
+    }
+
+    return {
+        created,
+        alreadyExisted: false
+    };
+}
+
+/**
+ * Actualiza o crea el registro del pago dentro de una transacción.
+ */
+async function upsertPagoAprobado(connection, orderRow, transactionId, clientTransactionId, pagoReal) {
+    const gatewayEstado = mapGatewayStatusToPagoEstado(pagoReal);
+    const authorizationCode = getAuthorizationCodeFromGateway(pagoReal);
+    const referenciaPago = getGatewayReference(pagoReal, clientTransactionId);
+    const respuestaGateway = safeJsonStringify(pagoReal);
+
+    const montoAprobado = Number(
+        pagoReal?.amount ??
+        pagoReal?.amountWithoutTax ??
+        orderRow.total
+    );
+
+    const montoNormalizado = Number.isFinite(montoAprobado) && montoAprobado > 0
+        ? montoAprobado
+        : Number(orderRow.total || 0);
+
+    const [pagoRows] = await connection.execute(
+        `
+        SELECT id_pago
+        FROM pagos
+        WHERE id_orden = ?
+        ORDER BY id_pago DESC
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [orderRow.id_orden]
+    );
+
+    if (pagoRows.length > 0) {
+        await connection.execute(
+            `
+            UPDATE pagos
+            SET
+                proveedor_pago = 'Payphone',
+                transaccion_id = ?,
+                referencia_pago = ?,
+                authorization_code = ?,
+                monto = ?,
+                moneda = 'USD',
+                estado = ?,
+                respuesta_gateway = ?,
+                fecha_pago = NOW(),
+                fecha_actualizacion = NOW()
+            WHERE id_pago = ?
+            `,
+            [
+                String(transactionId),
+                referenciaPago,
+                authorizationCode,
+                montoNormalizado,
+                gatewayEstado,
+                respuestaGateway,
+                pagoRows[0].id_pago
+            ]
+        );
+
+        return pagoRows[0].id_pago;
+    }
+
+    const [insertResult] = await connection.execute(
+        `
+        INSERT INTO pagos (
+            id_orden,
+            proveedor_pago,
+            transaccion_id,
+            referencia_pago,
+            authorization_code,
+            monto,
+            moneda,
+            estado,
+            respuesta_gateway,
+            fecha_pago,
+            fecha_creacion
+        ) VALUES (?, 'Payphone', ?, ?, ?, ?, 'USD', ?, ?, NOW(), NOW())
+        `,
+        [
+            orderRow.id_orden,
+            String(transactionId),
+            referenciaPago,
+            authorizationCode,
+            montoNormalizado,
+            gatewayEstado,
+            respuestaGateway
+        ]
+    );
+
+    return insertResult.insertId;
 }
 
 router.post('/generar-link', async (req, res) => {
@@ -179,6 +464,8 @@ router.post('/generar-link', async (req, res) => {
 router.post('/webhook', async (req, res) => {
     console.log(`[WEBHOOK IN] Recibiendo notificación de pago... IP: ${req.ip}`);
 
+    let connection;
+
     try {
         const payload = req.body || {};
         const transactionId = payload.id;
@@ -194,12 +481,6 @@ router.post('/webhook', async (req, res) => {
             return res.status(400).json({ error: 'Payload inválido: clientTransactionId requerido' });
         }
 
-        const isAlreadyProcessed = await checkIfOrderIsPaidSafe(clientTransactionId);
-        if (isAlreadyProcessed) {
-            console.log(`⚠️ [Idempotencia] La orden ${clientTransactionId} ya estaba pagada. Ignorando aviso duplicado.`);
-            return res.status(200).send('Orden ya procesada anteriormente');
-        }
-
         console.log(`Consultando estado real de transacción: ${transactionId}`);
         const pagoReal = await PayphoneService.verificarPago(transactionId);
 
@@ -208,42 +489,212 @@ router.post('/webhook', async (req, res) => {
             return res.status(502).send('No se pudo verificar la transacción con el proveedor');
         }
 
-        if (isApprovedTransaction(pagoReal)) {
-            console.log(`✅ ¡Pago Verificado Exitosamente! Orden: ${clientTransactionId}`);
+        const gatewayEstado = mapGatewayStatusToPagoEstado(pagoReal);
 
-            const datosCompletos = await OrderDB.obtenerDatosCompletosPorCodigo(clientTransactionId);
+        if (!isApprovedTransaction(pagoReal)) {
+            console.warn(`❌ [Webhook] Pago no aprobado. Orden: ${clientTransactionId}. Estado gateway: ${gatewayEstado}`);
 
-            if (!datosCompletos) {
-                console.warn(`⚠️ [Webhook] No se encontró la orden ${clientTransactionId} en la BD luego de verificar el pago.`);
-                return res.status(404).send('Orden no encontrada en base de datos');
-            }
-
-            // Se mantiene la llamada existente para no afectar el flujo actual.
-            // Si BillBusiness falla, se reporta el error para evitar falsos positivos silenciosos.
             try {
-                await BillBusiness.procesarFactura(datosCompletos);
-            } catch (facturaError) {
-                console.error(`❌ [Facturación] Error procesando factura para ${clientTransactionId}:`, facturaError.message);
-                return res.status(500).send('Pago verificado, pero falló el procesamiento posterior');
+                const [ordenRows] = await db.execute(
+                    `
+                    SELECT id_orden, codigo_orden, total, estado
+                    FROM ordenes
+                    WHERE codigo_orden = ?
+                    LIMIT 1
+                    `,
+                    [clientTransactionId]
+                );
+
+                if (ordenRows.length > 0) {
+                    const orden = ordenRows[0];
+
+                    await db.execute(
+                        `
+                        UPDATE pagos
+                        SET
+                            proveedor_pago = 'Payphone',
+                            transaccion_id = ?,
+                            referencia_pago = ?,
+                            authorization_code = ?,
+                            monto = ?,
+                            moneda = 'USD',
+                            estado = ?,
+                            respuesta_gateway = ?,
+                            fecha_actualizacion = NOW()
+                        WHERE id_orden = ?
+                        `,
+                        [
+                            String(transactionId),
+                            getGatewayReference(pagoReal, clientTransactionId),
+                            getAuthorizationCodeFromGateway(pagoReal),
+                            Number(orden.total || 0),
+                            gatewayEstado,
+                            safeJsonStringify(pagoReal),
+                            orden.id_orden
+                        ]
+                    );
+                }
+            } catch (updatePagoError) {
+                console.error('❌ Error actualizando pago rechazado/anulado:', updatePagoError.message);
             }
 
-            return res.status(200).send('Webhook recibido, verificado y procesado');
+            if (
+                OrderBusiness &&
+                typeof OrderBusiness.handleFailedPayment === 'function'
+            ) {
+                try {
+                    await OrderBusiness.handleFailedPayment(clientTransactionId);
+                } catch (rollbackError) {
+                    console.error(`❌ [Rollback] Falló el rollback para ${clientTransactionId}:`, rollbackError.message);
+                }
+            } else {
+                console.warn(`⚠️ [Rollback] No existe OrderBusiness.handleFailedPayment para la orden ${clientTransactionId}.`);
+            }
+
+            return res.status(400).send('Transacción no aprobada, stock restaurado');
         }
 
-        console.warn(`❌ [Seguridad] Pago no aprobado o fallido. Iniciando rollback de stock para la orden: ${clientTransactionId}`);
+        connection = await db.getConnection();
+        await connection.beginTransaction();
 
-        if (
-            OrderBusiness &&
-            typeof OrderBusiness.handleFailedPayment === 'function'
-        ) {
-            await OrderBusiness.handleFailedPayment(clientTransactionId);
-        } else {
-            console.warn(`⚠️ [Rollback] No existe OrderBusiness.handleFailedPayment para la orden ${clientTransactionId}.`);
+        const [ordenRows] = await connection.execute(
+            `
+            SELECT
+                o.id_orden,
+                o.id_cliente,
+                o.codigo_orden,
+                o.total,
+                o.estado,
+                c.nombres,
+                c.apellidos,
+                c.email,
+                c.cedula_ruc,
+                c.direccion
+            FROM ordenes o
+            INNER JOIN clientes c ON c.id_cliente = o.id_cliente
+            WHERE o.codigo_orden = ?
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [clientTransactionId]
+        );
+
+        if (!ordenRows.length) {
+            await connection.rollback();
+            return res.status(404).send('Orden no encontrada en base de datos');
         }
 
-        return res.status(400).send('Transacción no aprobada, stock restaurado');
+        const orden = ordenRows[0];
+        const estadoOrdenActual = normalizeLower(orden.estado);
+
+        const [existingEntriesRows] = await connection.execute(
+            `
+            SELECT COUNT(*) AS total
+            FROM entradas
+            WHERE id_orden = ?
+            `,
+            [orden.id_orden]
+        );
+
+        const totalEntradasExistentes = Number(existingEntriesRows[0]?.total || 0);
+
+        const [latestPagoRows] = await connection.execute(
+            `
+            SELECT id_pago, estado, transaccion_id
+            FROM pagos
+            WHERE id_orden = ?
+            ORDER BY id_pago DESC
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [orden.id_orden]
+        );
+
+        const latestPago = latestPagoRows[0] || null;
+
+        const yaProcesada =
+            estadoOrdenActual === 'pagada' ||
+            totalEntradasExistentes > 0 ||
+            normalizeLower(latestPago?.estado) === 'aprobado';
+
+        if (yaProcesada) {
+            await upsertPagoAprobado(connection, orden, transactionId, clientTransactionId, pagoReal);
+            await connection.commit();
+
+            console.log(`⚠️ [Idempotencia] La orden ${clientTransactionId} ya fue procesada previamente. No se duplicaron entradas.`);
+            return res.status(200).send('Orden ya procesada anteriormente');
+        }
+
+        await upsertPagoAprobado(connection, orden, transactionId, clientTransactionId, pagoReal);
+
+        await connection.execute(
+            `
+            UPDATE ordenes
+            SET
+                estado = 'pagada',
+                metodo_pago = 'Payphone',
+                observacion = CASE
+                    WHEN observacion IS NULL OR TRIM(observacion) = ''
+                    THEN ?
+                    ELSE CONCAT(observacion, ' | ', ?)
+                END,
+                fecha_actualizacion = NOW()
+            WHERE id_orden = ?
+            `,
+            [
+                `Pago aprobado por webhook. Transacción: ${transactionId}`,
+                `Pago aprobado por webhook. Transacción: ${transactionId}`,
+                orden.id_orden
+            ]
+        );
+
+        const entriesResult = await createEntriesForOrder(connection, orden);
+
+        await connection.commit();
+        connection.release();
+        connection = null;
+
+        console.log(
+            `✅ [Webhook] Orden ${clientTransactionId} pagada correctamente. Entradas creadas: ${entriesResult.created}`
+        );
+
+        try {
+            let datosCompletos = null;
+
+            if (
+                OrderDB &&
+                typeof OrderDB.obtenerDatosCompletosPorCodigo === 'function'
+            ) {
+                datosCompletos = await OrderDB.obtenerDatosCompletosPorCodigo(clientTransactionId);
+            }
+
+            if (datosCompletos) {
+                await BillBusiness.procesarFactura(datosCompletos);
+            } else {
+                console.warn(`⚠️ [Facturación] No se obtuvieron datos completos para la orden ${clientTransactionId}.`);
+            }
+        } catch (facturaError) {
+            console.error(`❌ [Facturación] Error procesando factura para ${clientTransactionId}:`, facturaError.message);
+            // No se responde error aquí porque el pago ya fue confirmado y persistido correctamente.
+        }
+
+        return res.status(200).send('Webhook recibido, pago confirmado y entradas generadas');
 
     } catch (error) {
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error('❌ Error haciendo rollback de la transacción del webhook:', rollbackError.message);
+            }
+
+            try {
+                connection.release();
+            } catch (releaseError) {
+                console.error('❌ Error liberando conexión del webhook:', releaseError.message);
+            }
+        }
+
         console.error('🚨 [Error Webhook] Fallo crítico al procesar:', error);
         return res.status(500).send('Error interno del servidor');
     }

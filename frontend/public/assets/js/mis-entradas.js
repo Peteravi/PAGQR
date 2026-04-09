@@ -12,6 +12,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchMessage = document.getElementById("searchMessage");
     const qrModal = document.getElementById("qrModal");
 
+    function normalizeString(value) {
+        return typeof value === "string" ? value.trim() : "";
+    }
+
+    function normalizeLower(value) {
+        return normalizeString(value).toLowerCase();
+    }
+
     function formatDateTime(value) {
         if (!value) {
             return {
@@ -21,6 +29,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return {
+                fecha: "No disponible",
+                hora: "No disponible"
+            };
+        }
 
         return {
             fecha: date.toLocaleDateString("es-EC", {
@@ -36,26 +51,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getBadgeText(estado) {
-        switch (estado) {
+        const estadoNormalizado = normalizeLower(estado);
+
+        switch (estadoNormalizado) {
             case "usada":
                 return "Usado";
             case "cancelada":
                 return "Cancelado";
-            case "enviada":
             case "generada":
+            case "enviada":
+            case "activa":
+            case "vigente":
             default:
                 return "Válido";
         }
     }
 
     function getBadgeClass(estado) {
-        switch (estado) {
+        const estadoNormalizado = normalizeLower(estado);
+
+        switch (estadoNormalizado) {
             case "usada":
                 return "badge-used";
             case "cancelada":
                 return "badge-cancelled";
-            case "enviada":
             case "generada":
+            case "enviada":
+            case "activa":
+            case "vigente":
             default:
                 return "badge-valid";
         }
@@ -84,6 +107,32 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function getTicketCode(ticket) {
+        return ticket?.codigo || ticket?.codigo_entrada || "SIN-CODIGO";
+    }
+
+    function getTicketQrImage(ticket) {
+        return ticket?.qr_image || null;
+    }
+
+    function getBuyerFullName(ticket) {
+        const nombres = ticket?.comprador?.nombres || "";
+        const apellidos = ticket?.comprador?.apellidos || "";
+        return `${nombres} ${apellidos}`.trim();
+    }
+
+    function getEventName(ticket) {
+        return ticket?.evento?.nombre || ticket?.evento?.titulo || "Evento no disponible";
+    }
+
+    function getEventLocation(ticket) {
+        return ticket?.evento?.lugar || ticket?.evento?.direccion || "No disponible";
+    }
+
+    function getTicketTypeName(ticket) {
+        return ticket?.tipo?.nombre || "No disponible";
+    }
+
     function fillQRModal(ticket) {
         if (!qrModal || !ticket) return;
 
@@ -92,23 +141,33 @@ document.addEventListener("DOMContentLoaded", () => {
         const code = qrModal.querySelector(".ticket-code");
         const ticketLink = qrModal.querySelector(".btn-open-full-ticket");
 
+        const codigo = getTicketCode(ticket);
+        const qrSrc = getTicketQrImage(ticket);
+
         if (qrImage) {
-            qrImage.src = ticket.qr_image;
-            qrImage.alt = ticket.codigo;
+            if (qrSrc) {
+                qrImage.src = qrSrc;
+                qrImage.alt = codigo;
+                qrImage.style.display = "";
+            } else {
+                qrImage.removeAttribute("src");
+                qrImage.alt = codigo;
+                qrImage.style.display = "none";
+            }
         }
 
         if (title) {
-            title.textContent = ticket.evento?.nombre || "Evento";
+            title.textContent = getEventName(ticket);
         }
 
         if (code) {
-            code.textContent = ticket.codigo || "";
+            code.textContent = codigo;
         }
 
         if (ticketLink) {
             ticketLink.onclick = () => {
                 saveCurrentTicket(ticket);
-                window.location.href = `ticket.html?codigo=${encodeURIComponent(ticket.codigo)}`;
+                window.location.href = `ticket.html?codigo=${encodeURIComponent(codigo)}`;
             };
         }
     }
@@ -117,30 +176,31 @@ document.addEventListener("DOMContentLoaded", () => {
         const article = document.createElement("article");
         article.className = "ticket-card";
 
-        const { fecha, hora } = formatDateTime(ticket.evento?.fecha_evento);
-        const comprador = `${ticket.comprador?.nombres || ""} ${ticket.comprador?.apellidos || ""}`.trim();
-        const badgeText = getBadgeText(ticket.estado);
-        const badgeClass = getBadgeClass(ticket.estado);
+        const { fecha, hora } = formatDateTime(ticket?.evento?.fecha_evento);
+        const comprador = getBuyerFullName(ticket);
+        const codigo = getTicketCode(ticket);
+        const badgeText = getBadgeText(ticket?.estado);
+        const badgeClass = getBadgeClass(ticket?.estado);
 
         article.innerHTML = `
             <div class="ticket-top">
                 <span class="${badgeClass}">${badgeText}</span>
-                <span class="ticket-number">#${ticket.codigo}</span>
+                <span class="ticket-number">#${codigo}</span>
             </div>
 
-            <h3>${ticket.evento?.nombre || "Evento no disponible"}</h3>
+            <h3>${getEventName(ticket)}</h3>
 
             <div class="ticket-info">
                 <p><strong>Fecha:</strong> ${fecha}</p>
                 <p><strong>Hora:</strong> ${hora}</p>
-                <p><strong>Lugar:</strong> ${ticket.evento?.lugar || "No disponible"}</p>
-                <p><strong>Tipo:</strong> ${ticket.tipo?.nombre || "No disponible"}</p>
+                <p><strong>Lugar:</strong> ${getEventLocation(ticket)}</p>
+                <p><strong>Tipo:</strong> ${getTicketTypeName(ticket)}</p>
                 <p><strong>Comprador:</strong> ${comprador || "No disponible"}</p>
             </div>
 
             <div class="ticket-actions">
                 <button type="button" class="btn-main btn-open-qr">Ver QR</button>
-                <a href="ticket.html?codigo=${encodeURIComponent(ticket.codigo)}" class="btn-secondary-custom btn-open-ticket">Ver ticket</a>
+                <a href="ticket.html?codigo=${encodeURIComponent(codigo)}" class="btn-secondary-custom btn-open-ticket">Ver ticket</a>
             </div>
         `;
 
@@ -193,8 +253,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function buscarEntradas() {
-        const email = (emailInput?.value || "").trim();
-        const documento = (docInput?.value || "").trim();
+        const email = normalizeString(emailInput?.value);
+        const documento = normalizeString(docInput?.value);
 
         if (!email && !documento) {
             setMessage("Ingresa tu correo o tu cédula/RUC para consultar tus entradas.", "warning");
@@ -204,34 +264,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             setMessage("", "info");
-            searchButton.disabled = true;
-            searchButton.textContent = "Buscando...";
+
+            if (searchButton) {
+                searchButton.disabled = true;
+                searchButton.textContent = "Buscando...";
+            }
 
             const params = new URLSearchParams();
             if (email) params.append("email", email);
             if (documento) params.append("documento", documento);
 
-            const response = await fetch(`${API_ENTRADAS}?${params.toString()}`);
+            const response = await fetch(`${API_ENTRADAS}?${params.toString()}`, {
+                cache: "no-store"
+            });
+
             const data = await response.json();
 
             if (!response.ok || !data.ok) {
                 throw new Error(data.message || "No se pudieron obtener las entradas");
             }
 
-            if (!data.entradas?.length) {
+            const entradas = Array.isArray(data.entradas) ? data.entradas : [];
+
+            if (!entradas.length) {
                 setMessage("No encontramos entradas con esos datos.", "warning");
             } else {
-                setMessage(`Se encontraron ${data.entradas.length} entrada(s).`, "success");
+                setMessage(`Se encontraron ${entradas.length} entrada(s).`, "success");
             }
 
-            renderTickets(data.entradas || []);
+            renderTickets(entradas);
         } catch (error) {
             console.error(error);
             setMessage(error.message || "Ocurrió un error al consultar las entradas.", "error");
             renderEmptyState("Ocurrió un error al consultar las entradas.");
         } finally {
-            searchButton.disabled = false;
-            searchButton.textContent = "Buscar entradas";
+            if (searchButton) {
+                searchButton.disabled = false;
+                searchButton.textContent = "Buscar entradas";
+            }
         }
     }
 
@@ -247,12 +317,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     updateResultCount(0);
-    ticketsGrid.innerHTML = `
-        <article class="ticket-card">
-            <h3>Consulta tus entradas</h3>
-            <div class="ticket-info">
-                <p>Ingresa tu correo electrónico o tu cédula/RUC para ver los tickets asociados a tu compra.</p>
-            </div>
-        </article>
-    `;
+
+    if (ticketsGrid) {
+        ticketsGrid.innerHTML = `
+            <article class="ticket-card">
+                <h3>Consulta tus entradas</h3>
+                <div class="ticket-info">
+                    <p>Ingresa tu correo electrónico o tu cédula/RUC para ver los tickets asociados a tu compra.</p>
+                </div>
+            </article>
+        `;
+    }
 });
