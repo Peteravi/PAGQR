@@ -131,8 +131,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const ticketModalTitle = document.querySelector("#ticketModal .ticket-modal-left h3");
         const ticketModalParagraphs = document.querySelectorAll("#ticketModal .ticket-modal-left p");
         const resumenRows = document.querySelectorAll("#resumenModal .resume-list div");
-        const qrBoxPrincipal = document.querySelector(".qr-box");
-        const qrBoxModal = document.querySelector("#ticketModal .modal-qr-box");
+        const qrBoxPrincipal = document.getElementById("qrContenedorPrincipal");
+        const qrBoxModal = document.getElementById("qrContenedorModal");
 
         const orden = data?.orden || {};
         const pago = data?.pago || null;

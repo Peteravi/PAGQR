@@ -31,6 +31,7 @@ class BillBusiness {
 
         } catch (error) {
             console.error(`🚨 [Business] Fallo al procesar la factura:`, error.message);
+            throw error;
         }
     }
     async generarStreamPDF(idOrden) {
