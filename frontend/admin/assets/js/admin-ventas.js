@@ -5,6 +5,7 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 let chartInstance = null;
 let logoutModalInstance = null;
 let adminCsrfToken = '';
+let ultimaOrdenSeleccionada = null;
 
 // ===============================
 // CSRF
@@ -60,6 +61,25 @@ async function fetchConCsrf(url, options = {}) {
     return response;
 }
 
+async function fetchJson(url, options = {}) {
+    const res = await fetch(url, {
+        credentials: 'same-origin',
+        ...options
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+        const message =
+            data?.message ||
+            data?.error ||
+            `Error HTTP ${res.status}`;
+        throw new Error(message);
+    }
+
+    return data;
+}
+
 // ===============================
 // UTILIDADES
 // ===============================
@@ -82,21 +102,18 @@ function mostrarToast(titulo, mensaje, tipo = 'success') {
     if (tipo === 'success') {
         toastElement.classList.add('text-bg-success');
         if (toastIcon) toastIcon.className = 'bi bi-check-circle-fill me-2';
-        if (toastTitle) toastTitle.textContent = titulo;
     } else if (tipo === 'error') {
         toastElement.classList.add('text-bg-danger');
         if (toastIcon) toastIcon.className = 'bi bi-exclamation-triangle-fill me-2';
-        if (toastTitle) toastTitle.textContent = titulo;
     } else if (tipo === 'warning') {
         toastElement.classList.add('text-bg-warning');
         if (toastIcon) toastIcon.className = 'bi bi-exclamation-circle-fill me-2';
-        if (toastTitle) toastTitle.textContent = titulo;
     } else {
         toastElement.classList.add('text-bg-primary');
         if (toastIcon) toastIcon.className = 'bi bi-info-circle-fill me-2';
-        if (toastTitle) toastTitle.textContent = titulo;
     }
 
+    if (toastTitle) toastTitle.textContent = titulo;
     if (toastMessage) toastMessage.textContent = mensaje;
 
     const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 4000 });
@@ -114,21 +131,7 @@ function formatearFecha(fecha) {
     if (!fecha) return '-';
     const f = new Date(fecha);
     if (isNaN(f.getTime())) return '-';
-    return f.toLocaleString('es-ES');
-}
-
-function obtenerBadgeEstado(estado) {
-    const estados = {
-        pagada: '<span class="badge bg-success">Pagada</span>',
-        pendiente: '<span class="badge bg-warning text-dark">Pendiente</span>',
-        fallida: '<span class="badge bg-danger">Fallida</span>',
-        cancelada: '<span class="badge bg-secondary">Cancelada</span>',
-        reembolsada: '<span class="badge bg-info">Reembolsada</span>',
-        activo: '<span class="badge bg-success">Activo</span>',
-        inactivo: '<span class="badge bg-secondary">Inactivo</span>',
-        agotado: '<span class="badge bg-warning text-dark">Agotado</span>'
-    };
-    return estados[estado] || `<span class="badge bg-light text-dark">${escapeHtml(estado || '-')}</span>`;
+    return f.toLocaleString('es-EC');
 }
 
 function escapeHtml(str) {
@@ -139,6 +142,76 @@ function escapeHtml(str) {
         if (m === '>') return '&gt;';
         return m;
     });
+}
+
+function normalizarEstado(estado) {
+    return String(estado || '').trim().toLowerCase();
+}
+
+function obtenerBadgeEstado(estado) {
+    const e = normalizarEstado(estado);
+
+    const estados = {
+        // estados de orden
+        pagada: '<span class="badge bg-success">Pagada</span>',
+        pendiente: '<span class="badge bg-warning text-dark">Pendiente</span>',
+        fallida: '<span class="badge bg-danger">Fallida</span>',
+        cancelada: '<span class="badge bg-secondary">Cancelada</span>',
+        reembolsada: '<span class="badge bg-info text-dark">Reembolsada</span>',
+
+        // estados de pago
+        iniciado: '<span class="badge bg-light text-dark border">Iniciado</span>',
+        aprobado: '<span class="badge bg-success">Aprobado</span>',
+        rechazado: '<span class="badge bg-danger">Rechazado</span>',
+        anulado: '<span class="badge bg-secondary">Anulado</span>',
+        reembolsado: '<span class="badge bg-info text-dark">Reembolsado</span>',
+
+        // estados de stock
+        activo: '<span class="badge bg-success">Activo</span>',
+        inactivo: '<span class="badge bg-secondary">Inactivo</span>',
+        agotado: '<span class="badge bg-warning text-dark">Agotado</span>'
+    };
+
+    return estados[e] || `<span class="badge bg-light text-dark border">${escapeHtml(estado || '-')}</span>`;
+}
+
+function obtenerBadgeEstadoComercial(ordenEstado, pagoEstado) {
+    const oe = normalizarEstado(ordenEstado);
+    const pe = normalizarEstado(pagoEstado);
+
+    if (oe === 'pagada' || pe === 'aprobado') {
+        return '<span class="badge bg-success">Cobrada</span>';
+    }
+
+    if (oe === 'reembolsada' || pe === 'reembolsado') {
+        return '<span class="badge bg-info text-dark">Reembolsada</span>';
+    }
+
+    if (oe === 'fallida' || oe === 'cancelada' || pe === 'rechazado' || pe === 'anulado') {
+        return '<span class="badge bg-danger">No aprobada</span>';
+    }
+
+    if (oe === 'pendiente' || pe === 'pendiente' || pe === 'iniciado') {
+        return '<span class="badge bg-warning text-dark">Pendiente</span>';
+    }
+
+    return obtenerBadgeEstado(ordenEstado || pagoEstado || '-');
+}
+
+function actualizarUltimaActualizacion() {
+    const el = document.getElementById('badgeUltimaActualizacion');
+    if (!el) return;
+    el.textContent = `Última actualización: ${new Date().toLocaleString('es-EC')}`;
+}
+
+function setTexto(id, valor) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = valor;
+}
+
+function setHtml(id, valor) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = valor;
 }
 
 // ===============================
@@ -195,10 +268,7 @@ async function cerrarSesion() {
     } finally {
         if (confirmLogoutBtn) {
             confirmLogoutBtn.disabled = false;
-            confirmLogoutBtn.innerHTML = `
-                <i class="bi bi-box-arrow-right me-2"></i>
-                Sí, cerrar sesión
-            `;
+            confirmLogoutBtn.innerHTML = `Sí, salir`;
         }
     }
 }
@@ -214,12 +284,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         mostrarToast('Error', 'No se pudo inicializar la seguridad del panel', 'error');
     }
 
-    cargarTodosLosDatos();
     inicializarLogoutModal();
+    inicializarAcciones();
+    await cargarTodosLosDatos();
 });
 
-async function cargarTodosLosDatos() {
+function inicializarAcciones() {
+    const btnRecargar = document.getElementById('btnRecargarVentas');
+    if (btnRecargar) {
+        btnRecargar.addEventListener('click', async () => {
+            await cargarTodosLosDatos(true);
+        });
+    }
+}
+
+async function cargarTodosLosDatos(mostrarMensaje = false) {
     mostrarLoading(true);
+
     try {
         await Promise.all([
             cargarResumen(),
@@ -229,6 +310,17 @@ async function cargarTodosLosDatos() {
             cargarPagos(),
             cargarVentasPorDia()
         ]);
+
+        actualizarUltimaActualizacion();
+
+        if (mostrarMensaje) {
+            mostrarToast('Actualizado', 'Los datos del panel se actualizaron correctamente', 'success');
+        }
+
+        if (ultimaOrdenSeleccionada) {
+            await cargarResumenOrdenSeleccionada(ultimaOrdenSeleccionada);
+            await cargarDetalleOrden(ultimaOrdenSeleccionada);
+        }
     } catch (error) {
         console.error('Error al cargar datos:', error);
         mostrarToast('Error', 'Ocurrió un error al cargar los datos', 'error');
@@ -243,23 +335,20 @@ async function cargarTodosLosDatos() {
 // ===============================
 async function cargarResumen() {
     try {
-        const res = await fetch(`${API}/resumen`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error en la respuesta del servidor');
+        const data = await fetchJson(`${API}/resumen`);
 
-        const data = await res.json();
-
-        document.getElementById('totalVendido').innerText = formatearMoneda(data.total_vendido);
-        document.getElementById('totalOrdenes').innerText = data.total_ordenes ?? '0';
-        document.getElementById('ingresosReales').innerText = formatearMoneda(data.ingresos_reales);
-        document.getElementById('ventasFallidas').innerText = data.ventas_fallidas ?? '0';
+        setTexto('totalVendido', formatearMoneda(data.total_vendido));
+        setTexto('totalOrdenes', String(data.total_ordenes ?? 0));
+        setTexto('ingresosReales', formatearMoneda(data.monto_pendiente ?? 0));
+        setTexto('ventasFallidas', String(data.ventas_fallidas ?? 0));
     } catch (error) {
         console.error('Error cargando resumen:', error);
         mostrarToast('Error', 'No se pudo cargar el resumen de ventas', 'error');
 
-        document.getElementById('totalVendido').innerText = formatearMoneda(0);
-        document.getElementById('totalOrdenes').innerText = '0';
-        document.getElementById('ingresosReales').innerText = formatearMoneda(0);
-        document.getElementById('ventasFallidas').innerText = '0';
+        setTexto('totalVendido', formatearMoneda(0));
+        setTexto('totalOrdenes', '0');
+        setTexto('ingresosReales', formatearMoneda(0));
+        setTexto('ventasFallidas', '0');
     }
 }
 
@@ -268,35 +357,55 @@ async function cargarResumen() {
 // ===============================
 async function cargarOrdenes() {
     try {
-        const res = await fetch(`${API}/ordenes`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error al obtener órdenes');
-
-        const data = await res.json();
+        const data = await fetchJson(`${API}/ordenes`);
         const tabla = document.getElementById('tablaOrdenes');
+
+        if (!tabla) return;
 
         if (!Array.isArray(data) || !data.length) {
             tabla.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay órdenes registradas</td></tr>';
             return;
         }
 
-        tabla.innerHTML = data.map(orden => `
-            <tr class="fade-in-row">
-                <td>${escapeHtml(orden.codigo_orden)}</td>
-                <td>${escapeHtml(orden.cliente)}</td>
-                <td>${formatearMoneda(orden.total)}</td>
-                <td>${obtenerBadgeEstado(orden.estado)}</td>
-                <td>${escapeHtml(orden.metodo_pago || '-')}</td>
-                <td>${formatearFecha(orden.fecha_creacion)}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${orden.id_orden})">
-                        <i class="bi bi-eye"></i> Ver
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        tabla.innerHTML = data.map(orden => {
+            const badgeComercial = obtenerBadgeEstadoComercial(orden.estado, orden.pago_estado);
+
+            const metodoPago = escapeHtml(orden.metodo_pago || orden.proveedor_pago || '-');
+
+            return `
+                <tr class="fade-in-row">
+                    <td>
+                        <strong>${escapeHtml(orden.codigo_orden)}</strong>
+                    </td>
+                    <td>${escapeHtml(orden.cliente || '-')}</td>
+                    <td>${formatearMoneda(orden.total)}</td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <div>${badgeComercial}</div>
+                            <small class="text-muted">
+                                Orden: ${escapeHtml(orden.estado || '-')}
+                            </small>
+                            <small class="text-muted">
+                                Pago: ${escapeHtml(orden.pago_estado || '-')}
+                            </small>
+                        </div>
+                    </td>
+                    <td>${metodoPago}</td>
+                    <td>${formatearFecha(orden.fecha_creacion)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${Number(orden.id_orden)})">
+                            <i class="bi bi-eye"></i> Ver
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     } catch (error) {
         console.error('Error cargando órdenes:', error);
-        document.getElementById('tablaOrdenes').innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error al cargar órdenes</td></tr>';
+        const tabla = document.getElementById('tablaOrdenes');
+        if (tabla) {
+            tabla.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error al cargar órdenes</td></tr>';
+        }
         mostrarToast('Error', 'No se pudieron cargar las órdenes', 'error');
     }
 }
@@ -304,13 +413,12 @@ async function cargarOrdenes() {
 // ===============================
 // 3. DETALLE DE ORDEN
 // ===============================
-window.verDetalle = async function (id) {
+async function cargarDetalleOrden(id) {
     try {
-        const res = await fetch(`${API}/ordenes/${id}`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error al obtener detalle');
-
-        const data = await res.json();
+        const data = await fetchJson(`${API}/ordenes/${id}`);
         const tabla = document.getElementById('tablaDetalleOrden');
+
+        if (!tabla) return;
 
         if (!Array.isArray(data) || !data.length) {
             tabla.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay detalles para esta orden</td></tr>';
@@ -326,11 +434,74 @@ window.verDetalle = async function (id) {
                 <td>${formatearMoneda(item.subtotal)}</td>
             </tr>
         `).join('');
-
-        tabla.scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
         console.error('Error cargando detalle:', error);
+        const tabla = document.getElementById('tablaDetalleOrden');
+        if (tabla) {
+            tabla.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar detalle</td></tr>';
+        }
         mostrarToast('Error', 'No se pudo cargar el detalle de la orden', 'error');
+    }
+}
+
+async function cargarResumenOrdenSeleccionada(id) {
+    try {
+        const data = await fetchJson(`${API}/ordenes/${id}/resumen`);
+
+        const orden = data?.orden || {};
+        const pago = data?.pago || {};
+        const cliente = orden?.cliente || {};
+        const totales = data?.totales || {};
+        const entradas = data?.entradas || {};
+
+        setTexto('badgeOrdenSeleccionada', orden.codigo_orden ? `Orden seleccionada: ${orden.codigo_orden}` : 'Orden seleccionada');
+        setTexto('ordenResumenCodigo', orden.codigo_orden || '-');
+        setTexto('ordenResumenCliente', `${cliente.nombres || ''} ${cliente.apellidos || ''}`.trim() || '-');
+        setHtml('ordenResumenEstadoOrden', obtenerBadgeEstado(orden.estado));
+        setHtml('ordenResumenEstadoPago', obtenerBadgeEstado(pago.estado || '-'));
+        setTexto('ordenResumenEntradas', String(entradas.total_generadas ?? 0));
+        setTexto('ordenResumenTotal', formatearMoneda(totales.total ?? 0));
+        setTexto('ordenResumenMetodoPago', orden.metodo_pago || pago.proveedor_pago || '-');
+        setTexto('ordenResumenFechaCreacion', formatearFecha(orden.fecha_creacion));
+        setTexto('ordenResumenFechaActualizacion', formatearFecha(orden.fecha_actualizacion));
+    } catch (error) {
+        console.error('Error cargando resumen de orden:', error);
+        mostrarToast('Error', 'No se pudo cargar el resumen de la orden', 'error');
+        limpiarResumenOrdenSeleccionada();
+    }
+}
+
+function limpiarResumenOrdenSeleccionada() {
+    setTexto('badgeOrdenSeleccionada', 'Ninguna orden seleccionada');
+    setTexto('ordenResumenCodigo', '-');
+    setTexto('ordenResumenCliente', '-');
+    setHtml('ordenResumenEstadoOrden', '-');
+    setHtml('ordenResumenEstadoPago', '-');
+    setTexto('ordenResumenEntradas', '0');
+    setTexto('ordenResumenTotal', formatearMoneda(0));
+    setTexto('ordenResumenMetodoPago', '-');
+    setTexto('ordenResumenFechaCreacion', '-');
+    setTexto('ordenResumenFechaActualizacion', '-');
+}
+
+window.verDetalle = async function (id) {
+    ultimaOrdenSeleccionada = id;
+    mostrarLoading(true);
+
+    try {
+        await Promise.all([
+            cargarDetalleOrden(id),
+            cargarResumenOrdenSeleccionada(id)
+        ]);
+
+        const resumen = document.getElementById('resumenOrdenSeleccionada');
+        if (resumen) {
+            resumen.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } catch (error) {
+        console.error('Error cargando vista de orden:', error);
+    } finally {
+        mostrarLoading(false);
     }
 };
 
@@ -339,11 +510,10 @@ window.verDetalle = async function (id) {
 // ===============================
 async function cargarVentasPorEvento() {
     try {
-        const res = await fetch(`${API}/ventas-por-evento`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error al obtener ventas por evento');
-
-        const data = await res.json();
+        const data = await fetchJson(`${API}/ventas-por-evento`);
         const tabla = document.getElementById('tablaVentasEvento');
+
+        if (!tabla) return;
 
         if (!Array.isArray(data) || !data.length) {
             tabla.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay ventas registradas</td></tr>';
@@ -359,7 +529,10 @@ async function cargarVentasPorEvento() {
         `).join('');
     } catch (error) {
         console.error('Error ventas por evento:', error);
-        document.getElementById('tablaVentasEvento').innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error al cargar datos</td></tr>';
+        const tabla = document.getElementById('tablaVentasEvento');
+        if (tabla) {
+            tabla.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error al cargar datos</td></tr>';
+        }
         mostrarToast('Error', 'No se pudieron cargar las ventas por evento', 'error');
     }
 }
@@ -369,11 +542,10 @@ async function cargarVentasPorEvento() {
 // ===============================
 async function cargarStock() {
     try {
-        const res = await fetch(`${API}/stock`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error al obtener stock');
-
-        const data = await res.json();
+        const data = await fetchJson(`${API}/stock`);
         const tabla = document.getElementById('tablaStock');
+
+        if (!tabla) return;
 
         if (!Array.isArray(data) || !data.length) {
             tabla.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay tipos de entrada registrados</td></tr>';
@@ -392,7 +564,10 @@ async function cargarStock() {
         `).join('');
     } catch (error) {
         console.error('Error cargando stock:', error);
-        document.getElementById('tablaStock').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar stock</td></tr>';
+        const tabla = document.getElementById('tablaStock');
+        if (tabla) {
+            tabla.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar stock</td></tr>';
+        }
         mostrarToast('Error', 'No se pudo cargar el control de stock', 'error');
     }
 }
@@ -402,11 +577,10 @@ async function cargarStock() {
 // ===============================
 async function cargarPagos() {
     try {
-        const res = await fetch(`${API}/pagos`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error al obtener pagos');
-
-        const data = await res.json();
+        const data = await fetchJson(`${API}/pagos`);
         const tabla = document.getElementById('tablaPagos');
+
+        if (!tabla) return;
 
         if (!Array.isArray(data) || !data.length) {
             tabla.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay pagos registrados</td></tr>';
@@ -416,15 +590,23 @@ async function cargarPagos() {
         tabla.innerHTML = data.map(pago => `
             <tr class="fade-in-row">
                 <td>${escapeHtml(pago.codigo_orden)}</td>
-                <td>${escapeHtml(pago.proveedor_pago)}</td>
-                <td>${obtenerBadgeEstado(pago.estado)}</td>
+                <td>${escapeHtml(pago.proveedor_pago || '-')}</td>
+                <td>
+                    <div class="d-flex flex-column gap-1">
+                        <div>${obtenerBadgeEstado(pago.estado)}</div>
+                        ${pago.estado_orden ? `<small class="text-muted">Orden: ${escapeHtml(pago.estado_orden)}</small>` : ''}
+                    </div>
+                </td>
                 <td>${formatearMoneda(pago.monto)}</td>
-                <td>${formatearFecha(pago.fecha_pago)}</td>
+                <td>${formatearFecha(pago.fecha_pago || pago.fecha_creacion)}</td>
             </tr>
         `).join('');
     } catch (error) {
         console.error('Error cargando pagos:', error);
-        document.getElementById('tablaPagos').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar pagos</td></tr>';
+        const tabla = document.getElementById('tablaPagos');
+        if (tabla) {
+            tabla.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar pagos</td></tr>';
+        }
         mostrarToast('Error', 'No se pudieron cargar los pagos', 'error');
     }
 }
@@ -434,12 +616,9 @@ async function cargarPagos() {
 // ===============================
 async function cargarVentasPorDia() {
     try {
-        const res = await fetch(`${API}/ventas-por-dia`, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error al obtener datos del gráfico');
-
-        const data = await res.json();
+        const data = await fetchJson(`${API}/ventas-por-dia`);
         const labels = Array.isArray(data) ? data.map(item => item.fecha) : [];
-        const valores = Array.isArray(data) ? data.map(item => item.total_dia) : [];
+        const valores = Array.isArray(data) ? data.map(item => Number(item.total_dia) || 0) : [];
 
         const canvas = document.getElementById('graficoVentas');
         if (!canvas) return;
@@ -455,10 +634,10 @@ async function cargarVentasPorDia() {
             data: {
                 labels,
                 datasets: [{
-                    label: 'Ventas por día',
+                    label: 'Ventas cobradas por día',
                     data: valores,
                     borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    backgroundColor: 'rgba(13, 110, 253, 0.10)',
                     tension: 0.3,
                     fill: true,
                     pointBackgroundColor: '#0d6efd',
@@ -483,6 +662,7 @@ async function cargarVentasPorDia() {
                 },
                 scales: {
                     y: {
+                        beginAtZero: true,
                         ticks: {
                             callback: (value) => formatearMoneda(value)
                         }
