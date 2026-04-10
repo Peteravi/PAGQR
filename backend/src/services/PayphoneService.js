@@ -4,31 +4,9 @@ class PayphoneService {
     constructor() {
         this.token = process.env.PAYPHONE_TOKEN;
         this.appId = process.env.PAYPHONE_APP_ID;
+        this.frontendUrl = process.env.FRONTEND_URL || 'https://pagqr-production.up.railway.app';
 
-        // Mantiene compatibilidad si frontend y backend están en el mismo dominio
-        this.frontendUrl = (process.env.FRONTEND_URL || 'https://pagqr-production.up.railway.app').replace(/\/+$/, '');
-        this.backendUrl = (process.env.BACKEND_URL || this.frontendUrl).replace(/\/+$/, '');
-
-        this.prepareUrl = 'https://pay.payphonetodoesposible.com/api/button/Prepare';
-        this.saleUrlBase = 'https://pay.payphonetodoesposible.com/api/Sale';
-        this.legacyVerifyBase = 'https://pay.payphonetodoesposible.com/api/button/V2';
-    }
-
-    getAuthHeaders() {
-        return {
-            Authorization: `Bearer ${this.token}`,
-            'Content-Type': 'application/json'
-        };
-    }
-
-    buildResponseUrl() {
-        // Ahora Payphone vuelve primero al backend para que el servidor procese
-        // la confirmación y luego redirija al frontend.
-        return `${this.backendUrl}/api/pagos/webhook`;
-    }
-
-    buildCancellationUrl() {
-        return `${this.frontendUrl}/error-pago.html`;
+        this.apiUrl = 'https://pay.payphonetodoesposible.com/api/button/Prepare';
     }
 
     /**
@@ -45,14 +23,17 @@ class PayphoneService {
                 amountWithoutTax: data.amount,
                 tax: 0,
                 amountWithTax: 0,
-                currency: 'USD',
+                currency: "USD",
                 clientTransactionId: data.orderId,
-                responseUrl: this.buildResponseUrl(),
-                cancellationUrl: this.buildCancellationUrl()
+                responseUrl: `${this.frontendUrl}/exito-pago.html`,
+                cancellationUrl: `${this.frontendUrl}/error-pago.html`
             };
 
-            const response = await axios.post(this.prepareUrl, payload, {
-                headers: this.getAuthHeaders()
+            const response = await axios.post(this.apiUrl, payload, {
+                headers: {
+                    'Authorization': 'Bearer ' + this.token,
+                    'Content-Type': 'application/json'
+                }
             });
 
             console.log('✅ Payphone response completa:', JSON.stringify(response.data, null, 2));
@@ -61,7 +42,7 @@ class PayphoneService {
                 paymentUrl,
                 payWithCard,
                 payWithPayPhone
-            } = response.data || {};
+            } = response.data;
 
             if (!paymentUrl && !payWithCard && !payWithPayPhone) {
                 throw new Error(`Payphone no devolvió métodos de pago válidos: ${JSON.stringify(response.data)}`);
@@ -72,6 +53,7 @@ class PayphoneService {
                 payWithCard: payWithCard || null,
                 payWithPayPhone: payWithPayPhone || null
             };
+
         } catch (error) {
             const chismeReal = error.response && error.response.data
                 ? JSON.stringify(error.response.data)
@@ -83,55 +65,28 @@ class PayphoneService {
     }
 
     /**
-     * Verifica el estado real de la transacción en Payphone.
-     * Usa primero el endpoint actual /api/Sale/{transactionId}
-     * y si falla, intenta el endpoint legado para no romper compatibilidad.
+     * Verifica el estado real de la transacción en Payphone
      * @param {string|number} transactionId
      */
     async verificarPago(transactionId) {
-        const normalizedId = String(transactionId || '').trim();
-
-        if (!normalizedId) {
-            throw new Error('transactionId inválido para verificar pago');
-        }
-
-        const currentUrl = `${this.saleUrlBase}/${encodeURIComponent(normalizedId)}`;
-        const legacyUrl = `${this.legacyVerifyBase}/${encodeURIComponent(normalizedId)}`;
-
         try {
-            const response = await axios.get(currentUrl, {
+            const verifyUrl = `https://pay.payphonetodoesposible.com/api/button/V2/${transactionId}`;
+
+            const response = await axios.get(verifyUrl, {
                 headers: {
-                    Authorization: `Bearer ${this.token}`
+                    'Authorization': 'Bearer ' + this.token
                 }
             });
 
             return response.data;
+
         } catch (error) {
-            const status = Number(error?.response?.status || 0);
-            const payload = error?.response?.data;
+            const chismeReal = error.response && error.response.data
+                ? JSON.stringify(error.response.data)
+                : error.message;
 
-            console.warn(
-                `⚠️ Error verificando en endpoint actual de Payphone (${currentUrl}). ` +
-                `Status: ${status || 'N/A'}. Intentando fallback legado...`,
-                payload || error.message
-            );
-
-            try {
-                const legacyResponse = await axios.get(legacyUrl, {
-                    headers: {
-                        Authorization: `Bearer ${this.token}`
-                    }
-                });
-
-                return legacyResponse.data;
-            } catch (legacyError) {
-                const chismeReal = legacyError.response && legacyError.response.data
-                    ? JSON.stringify(legacyError.response.data)
-                    : legacyError.message;
-
-                console.error('❌ [Seguridad] Error verificando transacción en Payphone:', chismeReal);
-                throw new Error('No se pudo verificar la autenticidad del pago');
-            }
+            console.error('❌ [Seguridad] Error verificando transacción en Payphone:', chismeReal);
+            throw new Error('No se pudo verificar la autenticidad del pago');
         }
     }
 }

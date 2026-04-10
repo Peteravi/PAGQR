@@ -13,24 +13,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    function saveLastPurchase(data) {
-        try {
-            localStorage.setItem(STORAGE_KEYS.lastPurchase, JSON.stringify(data));
-        } catch (error) {
-            console.warn("No se pudo guardar la última compra en localStorage:", error);
-        }
-    }
-
-    function getUrlParams() {
-        const params = new URLSearchParams(window.location.search);
-
-        return {
-            id_orden: params.get("id_orden") ? Number(params.get("id_orden")) : null,
-            orden: params.get("orden") || "",
-            tx: params.get("tx") || ""
-        };
-    }
-
     function formatDate(value) {
         if (!value) return "No disponible";
         return new Date(value).toLocaleDateString("es-EC", {
@@ -149,8 +131,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const ticketModalTitle = document.querySelector("#ticketModal .ticket-modal-left h3");
         const ticketModalParagraphs = document.querySelectorAll("#ticketModal .ticket-modal-left p");
         const resumenRows = document.querySelectorAll("#resumenModal .resume-list div");
-        const qrBoxPrincipal = document.getElementById("qrContenedorPrincipal") || document.querySelector(".qr-box");
-        const qrBoxModal = document.getElementById("qrContenedorModal") || document.querySelector("#ticketModal .modal-qr-box");
+        const qrBoxPrincipal = document.getElementById("qrContenedorPrincipal");
+        const qrBoxModal = document.getElementById("qrContenedorModal");
 
         const orden = data?.orden || {};
         const pago = data?.pago || null;
@@ -239,10 +221,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const ticketModalTitle = document.querySelector("#ticketModal .ticket-modal-left h3");
         const ticketModalParagraphs = document.querySelectorAll("#ticketModal .ticket-modal-left p");
         const resumenRows = document.querySelectorAll("#resumenModal .resume-list div");
-        const qrBoxPrincipal = document.querySelector(".qr-box") || document.getElementById("qrContenedorPrincipal");
-        const qrBoxModal = document.querySelector("#ticketModal .modal-qr-box") || document.getElementById("qrContenedorModal");
+        const qrBoxPrincipal = document.querySelector(".qr-box");
+        const qrBoxModal = document.querySelector("#ticketModal .modal-qr-box");
 
-        const comprador = orden.comprador || {};
+        const comprador = orden.comprador;
         const fullName = `${comprador.nombres || ""} ${comprador.apellidos || ""}`.trim();
         const friendlyStatus = getFriendlyStatusText(orden.estado, data?.pago?.estado);
 
@@ -259,10 +241,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const buyerCardRows = detailCards[1].querySelectorAll(".detail-item");
 
             if (eventCardRows.length >= 5) {
-                eventCardRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento?.nombre || "No disponible"}</strong>`;
-                eventCardRows[1].innerHTML = `<span>Fecha</span><strong>${formatDate(ticket.evento?.fecha_evento)}</strong>`;
-                eventCardRows[2].innerHTML = `<span>Hora</span><strong>${formatTime(ticket.evento?.fecha_evento)}</strong>`;
-                eventCardRows[3].innerHTML = `<span>Lugar</span><strong>${ticket.evento?.lugar || "No disponible"}</strong>`;
+                eventCardRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento.nombre}</strong>`;
+                eventCardRows[1].innerHTML = `<span>Fecha</span><strong>${formatDate(ticket.evento.fecha_evento)}</strong>`;
+                eventCardRows[2].innerHTML = `<span>Hora</span><strong>${formatTime(ticket.evento.fecha_evento)}</strong>`;
+                eventCardRows[3].innerHTML = `<span>Lugar</span><strong>${ticket.evento.lugar || "No disponible"}</strong>`;
                 eventCardRows[4].innerHTML = `<span>Cantidad</span><strong>${data.entradas.length} entrada${data.entradas.length > 1 ? "s" : ""}</strong>`;
             }
 
@@ -275,51 +257,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        if (ticketModalTitle) {
-            ticketModalTitle.textContent = ticket.evento?.nombre || "Entrada";
-        }
+        if (ticketModalTitle) ticketModalTitle.textContent = ticket.evento.nombre;
 
         if (ticketModalParagraphs.length >= 5) {
-            ticketModalParagraphs[0].innerHTML = `<strong>Fecha:</strong> ${formatDate(ticket.evento?.fecha_evento)}`;
-            ticketModalParagraphs[1].innerHTML = `<strong>Hora:</strong> ${formatTime(ticket.evento?.fecha_evento)}`;
-            ticketModalParagraphs[2].innerHTML = `<strong>Lugar:</strong> ${ticket.evento?.lugar || "No disponible"}`;
+            ticketModalParagraphs[0].innerHTML = `<strong>Fecha:</strong> ${formatDate(ticket.evento.fecha_evento)}`;
+            ticketModalParagraphs[1].innerHTML = `<strong>Hora:</strong> ${formatTime(ticket.evento.fecha_evento)}`;
+            ticketModalParagraphs[2].innerHTML = `<strong>Lugar:</strong> ${ticket.evento.lugar || "No disponible"}`;
             ticketModalParagraphs[3].innerHTML = `<strong>Asistente:</strong> ${fullName || "No disponible"}`;
-            ticketModalParagraphs[4].innerHTML = `<strong>Código:</strong> ${ticket.codigo || "No disponible"}`;
+            ticketModalParagraphs[4].innerHTML = `<strong>Código:</strong> ${ticket.codigo}`;
         }
 
         if (resumenRows.length >= 6) {
-            resumenRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento?.nombre || "No disponible"}</strong>`;
+            resumenRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento.nombre}</strong>`;
             resumenRows[1].innerHTML = `<span>Cantidad</span><strong>${data.entradas.length}</strong>`;
-            resumenRows[2].innerHTML = `<span>Precio unitario</span><strong>${formatPrice(ticket.tipo?.precio)}</strong>`;
+            resumenRows[2].innerHTML = `<span>Precio unitario</span><strong>${formatPrice(ticket.tipo.precio)}</strong>`;
             resumenRows[3].innerHTML = `<span>Método de pago</span><strong>${data?.pago?.proveedor_pago || "Payphone"}</strong>`;
             resumenRows[4].innerHTML = `<span>Estado</span><strong class="success-text">${friendlyStatus}</strong>`;
             resumenRows[5].innerHTML = `<span>Total</span><strong>${formatPrice(orden.total)}</strong>`;
-        }
-    }
-
-    async function buscarIdOrdenPorCodigo(codigoOrden) {
-        if (!codigoOrden) return null;
-
-        try {
-            const response = await fetch(`/api/ordenes/codigo/${encodeURIComponent(codigoOrden)}`, {
-                cache: "no-store"
-            });
-
-            let data = null;
-            try {
-                data = await response.json();
-            } catch {
-                data = null;
-            }
-
-            if (!response.ok || !data?.ok) {
-                return null;
-            }
-
-            return Number(data?.orden?.id_orden) || null;
-        } catch (error) {
-            console.warn("No se pudo resolver el id_orden por código:", error);
-            return null;
         }
     }
 
@@ -443,39 +397,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const purchase = getLastPurchase();
-    const urlParams = getUrlParams();
 
-    let purchaseContext = purchase ? { ...purchase } : {};
-
-    if (!purchaseContext.id_orden && urlParams.id_orden) {
-        purchaseContext.id_orden = urlParams.id_orden;
-    }
-
-    if (!purchaseContext.codigo_orden && urlParams.orden) {
-        purchaseContext.codigo_orden = urlParams.orden;
-    }
-
-    if (!purchaseContext.transactionId && urlParams.tx) {
-        purchaseContext.transactionId = urlParams.tx;
-    }
-
-    if (!purchaseContext.id_orden && purchaseContext.codigo_orden) {
-        const resolvedIdOrden = await buscarIdOrdenPorCodigo(purchaseContext.codigo_orden);
-        if (resolvedIdOrden) {
-            purchaseContext.id_orden = resolvedIdOrden;
-        }
-    }
-
-    if (!purchaseContext?.id_orden) {
+    if (!purchase?.id_orden) {
         alert("No se encontró una compra reciente.");
         window.location.href = "index.html";
         return;
     }
 
-    saveLastPurchase(purchaseContext);
-
     try {
-        const result = await cargarOrdenConPolling(purchaseContext.id_orden);
+        const result = await cargarOrdenConPolling(purchase.id_orden);
 
         if (result.mode === "ready") {
             renderReadyState(result.data);
