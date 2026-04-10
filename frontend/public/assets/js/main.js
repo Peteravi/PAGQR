@@ -80,6 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return `/${imagenUrl}`;
     }
 
+    function construirUrlGoogleMaps(evento) {
+        if (!evento || typeof evento !== 'object') return '#';
+
+        const partes = [
+            evento.lugar,
+            evento.ciudad
+        ]
+            .map(valor => String(valor || '').trim())
+            .filter(Boolean);
+
+        if (!partes.length) return '#';
+
+        const query = encodeURIComponent(partes.join(', '));
+        return `https://www.google.com/maps/search/?api=1&query=${query}`;
+    }
+
     function mostrarAlerta(mensaje) {
         alert(mensaje);
     }
@@ -555,6 +571,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if ($('detalleHora')) $('detalleHora').textContent = formatearHora(evento.fecha_evento);
             if ($('detalleLugar')) $('detalleLugar').textContent = [evento.lugar, evento.ciudad].filter(Boolean).join(' - ') || '--';
             if ($('detalleDescripcion')) $('detalleDescripcion').textContent = evento.descripcion || 'Sin descripción';
+
+            const btnVerUbicacionEvento = $('btnVerUbicacionEvento');
+            if (btnVerUbicacionEvento) {
+                const urlMaps = construirUrlGoogleMaps(evento);
+
+                btnVerUbicacionEvento.setAttribute('href', urlMaps);
+                btnVerUbicacionEvento.setAttribute('target', '_blank');
+                btnVerUbicacionEvento.setAttribute('rel', 'noopener noreferrer');
+
+                if (urlMaps === '#') {
+                    btnVerUbicacionEvento.classList.add('disabled');
+                    btnVerUbicacionEvento.setAttribute('aria-disabled', 'true');
+                    btnVerUbicacionEvento.setAttribute('tabindex', '-1');
+                    btnVerUbicacionEvento.setAttribute('title', 'Este evento no tiene ubicación disponible');
+                } else {
+                    btnVerUbicacionEvento.classList.remove('disabled');
+                    btnVerUbicacionEvento.removeAttribute('aria-disabled');
+                    btnVerUbicacionEvento.removeAttribute('tabindex');
+                    btnVerUbicacionEvento.removeAttribute('title');
+                }
+            }
 
             const imagen = $('detalleImagen');
             if (imagen) {

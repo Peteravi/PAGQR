@@ -77,6 +77,23 @@ function obtenerImagenEvento(imagenUrl) {
     return `/${imagenUrl}`;
 }
 
+
+function construirUrlGoogleMaps(evento) {
+    if (!evento || typeof evento !== 'object') return '#';
+
+    const partes = [
+        evento.lugar,
+        evento.ciudad
+    ]
+        .map(valor => String(valor || '').trim())
+        .filter(Boolean);
+
+    if (!partes.length) return '#';
+
+    const query = encodeURIComponent(partes.join(', '));
+    return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
 function mostrarAlerta(mensaje) {
     alert(mensaje);
 }
@@ -370,7 +387,7 @@ function renderizarTiposEntrada(containerId, tipos) {
 
 async function cargarTiposEntrada(idEvento) {
     try {
-        renderizarTiposEntrada('detalleTiposContainer', []);
+        renderizarTiposEntrada('tiposContainer', []);
         renderizarTiposEntrada('compraTiposContainer', []);
 
         const { response, data } = await fetchJson(`${API_BASE}/${idEvento}/tipos`);
@@ -381,7 +398,7 @@ async function cargarTiposEntrada(idEvento) {
 
         tiposEntradaActuales = Array.isArray(data.data) ? data.data : [];
 
-        renderizarTiposEntrada('detalleTiposContainer', tiposEntradaActuales);
+        renderizarTiposEntrada('tiposContainer', tiposEntradaActuales);
         renderizarTiposEntrada('compraTiposContainer', tiposEntradaActuales);
 
         const primerDisponible = tiposEntradaActuales.find(tipo => Number(tipo.stock_disponible || 0) > 0);
@@ -395,7 +412,7 @@ async function cargarTiposEntrada(idEvento) {
         console.error('Error cargando tipos de entrada:', error);
         tiposEntradaActuales = [];
         limpiarSeleccionTipo();
-        renderizarTiposEntrada('detalleTiposContainer', []);
+        renderizarTiposEntrada('tiposContainer', []);
         renderizarTiposEntrada('compraTiposContainer', []);
     }
 }
@@ -580,7 +597,14 @@ async function cargarEventos() {
 
 async function abrirDetalleEvento(idEvento) {
     try {
+        console.log('==============================');
+        console.log('abrirDetalleEvento -> idEvento:', idEvento);
+
         const { response, data } = await fetchJson(`${API_BASE}/${idEvento}`);
+
+        console.log('response.status:', response?.status);
+        console.log('response.ok:', response?.ok);
+        console.log('data completa:', data);
 
         if (!response.ok || !data?.ok) {
             throw new Error(data?.message || 'No se pudo cargar el evento');
@@ -589,18 +613,57 @@ async function abrirDetalleEvento(idEvento) {
         const evento = data.data;
         eventoSeleccionado = evento;
 
+        console.log('eventoSeleccionado:', evento);
+        console.log('evento.id_evento:', evento?.id_evento);
+        console.log('evento.titulo:', evento?.titulo);
+        console.log('evento.lugar:', evento?.lugar);
+        console.log('evento.ciudad:', evento?.ciudad);
+        console.log('evento.fecha_evento:', evento?.fecha_evento);
+
         limpiarSeleccionTipo();
 
         if ($('eventoIdSeleccionado')) $('eventoIdSeleccionado').value = evento.id_evento || '';
         if ($('detalleTitulo')) $('detalleTitulo').textContent = evento.titulo || 'Evento';
         if ($('detalleFecha')) $('detalleFecha').textContent = formatearFecha(evento.fecha_evento);
         if ($('detalleHora')) $('detalleHora').textContent = formatearHora(evento.fecha_evento);
+
         if ($('detalleLugar')) {
-            $('detalleLugar').textContent = [evento.lugar, evento.ciudad].filter(Boolean).join(' - ') || '--';
+            const textoLugar = [evento.lugar, evento.ciudad].filter(Boolean).join(' - ') || '--';
+            console.log('texto detalleLugar:', textoLugar);
+            $('detalleLugar').textContent = textoLugar;
         }
+
+        const btnVerUbicacionEvento = $('btnVerUbicacionEvento');
+        console.log('btnVerUbicacionEvento existe:', !!btnVerUbicacionEvento);
+
+        if (btnVerUbicacionEvento) {
+            const urlMaps = construirUrlGoogleMaps(evento);
+
+            console.log('urlMaps generada:', urlMaps);
+            console.log('href ANTES:', btnVerUbicacionEvento.getAttribute('href'));
+
+            btnVerUbicacionEvento.href = urlMaps;
+
+            console.log('href DESPUÉS:', btnVerUbicacionEvento.getAttribute('href'));
+            console.log('href absoluto DESPUÉS:', btnVerUbicacionEvento.href);
+
+            if (urlMaps === '#') {
+                console.log('La URL de Maps quedó en # porque no hubo datos suficientes.');
+                btnVerUbicacionEvento.classList.add('disabled');
+                btnVerUbicacionEvento.setAttribute('aria-disabled', 'true');
+                btnVerUbicacionEvento.setAttribute('tabindex', '-1');
+            } else {
+                console.log('La URL de Maps es válida, se habilita el botón.');
+                btnVerUbicacionEvento.classList.remove('disabled');
+                btnVerUbicacionEvento.removeAttribute('aria-disabled');
+                btnVerUbicacionEvento.removeAttribute('tabindex');
+            }
+        }
+
         if ($('detalleDescripcion')) {
             $('detalleDescripcion').textContent = evento.descripcion || 'Sin descripción';
         }
+
         if ($('detallePrecio')) {
             $('detallePrecio').textContent = evento.precio_desde != null
                 ? formatearMoneda(evento.precio_desde)
@@ -622,6 +685,9 @@ async function abrirDetalleEvento(idEvento) {
         if (detalleModal) {
             detalleModal.show();
         }
+
+        console.log('Modal detalle mostrado correctamente.');
+        console.log('==============================');
     } catch (error) {
         console.error('Error abriendo detalle:', error);
         mostrarAlerta(error.message || 'No se pudo abrir el detalle del evento');
