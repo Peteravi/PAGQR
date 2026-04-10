@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS ordenes (
     moneda VARCHAR(10) NOT NULL DEFAULT 'USD',
     estado ENUM('pendiente', 'pagada', 'fallida', 'cancelada', 'reembolsada') NOT NULL DEFAULT 'pendiente',
     metodo_pago VARCHAR(50) DEFAULT 'Payphone',
+    fecha_expiracion DATETIME NULL,
     observacion TEXT NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

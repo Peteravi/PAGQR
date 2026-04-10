@@ -15,6 +15,12 @@ class OrderDB {
         return Number.isInteger(n) && n > 0;
     }
 
+    toIsoSafe(value) {
+        if (!value) return null;
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    }
+
     safeJsonStringify(value) {
         try {
             return JSON.stringify(value ?? null);
@@ -30,6 +36,20 @@ class OrderDB {
         const now = Date.now().toString(36).toUpperCase();
         const rand = crypto.randomBytes(6).toString('hex').toUpperCase();
         return `${prefix}-${now}-${rand}`;
+    }
+
+    estaExpirada(ordenEntity) {
+        if (!ordenEntity) return false;
+
+        const estadoActual = this.normalizeLower(ordenEntity.estado);
+        if (estadoActual !== 'pendiente') return false;
+
+        if (!ordenEntity.fecha_expiracion) return false;
+
+        const fechaExpiracion = new Date(ordenEntity.fecha_expiracion);
+        if (Number.isNaN(fechaExpiracion.getTime())) return false;
+
+        return fechaExpiracion.getTime() <= Date.now();
     }
 
     /**
@@ -163,6 +183,7 @@ class OrderDB {
             SET
                 estado = 'pagada',
                 metodo_pago = ?,
+                fecha_expiracion = NULL,
                 fecha_actualizacion = NOW()
             WHERE id_orden = ?
             `,
@@ -188,6 +209,52 @@ class OrderDB {
             `,
             [idOrden]
         );
+    }
+
+    /**
+     * Marca orden como expirada
+     * @param {number} idOrden
+     * @param {object|null} connection
+     */
+    async marcarOrdenComoExpirada(idOrden, connection = null) {
+        const executor = connection || pool;
+
+        await executor.query(
+            `
+            UPDATE ordenes
+            SET
+                estado = 'expirada',
+                fecha_actualizacion = NOW()
+            WHERE id_orden = ?
+            `,
+            [idOrden]
+        );
+    }
+
+    /**
+     * Obtiene órdenes pendientes ya vencidas
+     * @param {number} limit
+     * @param {object|null} connection
+     * @returns {Promise<Array>}
+     */
+    async obtenerOrdenesPendientesExpiradas(limit = 100, connection = null) {
+        const executor = connection || pool;
+        const safeLimit = this.isPositiveInteger(limit) ? Number(limit) : 100;
+
+        const [rows] = await executor.query(
+            `
+            SELECT *
+            FROM ordenes
+            WHERE estado = 'pendiente'
+              AND fecha_expiracion IS NOT NULL
+              AND fecha_expiracion <= NOW()
+            ORDER BY fecha_expiracion ASC, id_orden ASC
+            LIMIT ?
+            `,
+            [safeLimit]
+        );
+
+        return rows;
     }
 
     /**
@@ -455,8 +522,9 @@ class OrderDB {
      * - uso por id_orden o codigo_orden
      *
      * @param {Object} ordenEntity
+     * @param {string} targetStatus
      */
-    async cancelarOrdenYRestaurarStock(ordenEntity) {
+    async cancelarOrdenYRestaurarStock(ordenEntity, targetStatus = 'fallida') {
         const connection = await pool.getConnection();
 
         try {
@@ -526,7 +594,15 @@ class OrderDB {
                 );
             }
 
-            await this.marcarOrdenComoFallida(ordenActual.id_orden, connection);
+            const normalizedTargetStatus = this.normalizeLower(targetStatus) === 'expirada'
+                ? 'expirada'
+                : 'fallida';
+
+            if (normalizedTargetStatus === 'expirada') {
+                await this.marcarOrdenComoExpirada(ordenActual.id_orden, connection);
+            } else {
+                await this.marcarOrdenComoFallida(ordenActual.id_orden, connection);
+            }
 
             await this.upsertPago(
                 {
@@ -535,17 +611,22 @@ class OrderDB {
                     transaccion_id: ordenActual.codigo_orden,
                     monto: Number(ordenActual.total || 0),
                     moneda: 'USD',
-                    estado: 'rechazado',
+                    estado: normalizedTargetStatus === 'expirada' ? 'anulado' : 'rechazado',
                     respuesta_gateway: {
-                        message: 'Pago no aprobado. Stock restaurado automáticamente.'
+                        message: normalizedTargetStatus === 'expirada'
+                            ? 'Orden expirada. Stock restaurado automáticamente.'
+                            : 'Pago no aprobado. Stock restaurado automáticamente.',
+                        order_status: normalizedTargetStatus,
+                        fecha_expiracion: this.toIsoSafe(ordenActual.fecha_expiracion)
                     },
                     setFechaPago: false
                 },
                 connection
             );
-
             await connection.commit();
-            console.log(`✅ [DB] Stock restaurado correctamente para la orden ${ordenActual.codigo_orden}`);
+            console.log(
+                `✅ [DB] Stock restaurado correctamente para la orden ${ordenActual.codigo_orden} con estado ${normalizedTargetStatus}`
+            );
             return true;
 
         } catch (error) {
@@ -558,6 +639,58 @@ class OrderDB {
         } finally {
             connection.release();
         }
+    }
+
+    /**
+     * Expira órdenes pendientes vencidas y restaura stock
+     * @param {number} limit
+     * @returns {Promise<{processed:number, expired:number, failed:number, orders:Array}>}
+     */
+    async expirarOrdenesPendientes(limit = 100) {
+        const ordenes = await this.obtenerOrdenesPendientesExpiradas(limit);
+
+        let expired = 0;
+        let failed = 0;
+        const processedOrders = [];
+
+        for (const orden of ordenes) {
+            try {
+                const result = await this.cancelarOrdenYRestaurarStock(orden, 'expirada');
+
+                if (result) {
+                    expired += 1;
+                    processedOrders.push({
+                        id_orden: orden.id_orden,
+                        codigo_orden: orden.codigo_orden,
+                        fecha_expiracion: this.toIsoSafe(orden.fecha_expiracion),
+                        status: 'expirada'
+                    });
+                } else {
+                    processedOrders.push({
+                        id_orden: orden.id_orden,
+                        codigo_orden: orden.codigo_orden,
+                        fecha_expiracion: this.toIsoSafe(orden.fecha_expiracion),
+                        status: 'omitida'
+                    });
+                }
+            } catch (error) {
+                failed += 1;
+                processedOrders.push({
+                    id_orden: orden.id_orden,
+                    codigo_orden: orden.codigo_orden,
+                    fecha_expiracion: this.toIsoSafe(orden.fecha_expiracion),
+                    status: 'error',
+                    message: error.message
+                });
+            }
+        }
+
+        return {
+            processed: ordenes.length,
+            expired,
+            failed,
+            orders: processedOrders
+        };
     }
 
     /**
@@ -576,6 +709,8 @@ class OrderDB {
                     o.subtotal,
                     o.iva,
                     o.total,
+                    o.estado,
+                    o.fecha_expiracion,
                     c.nombres,
                     c.apellidos,
                     c.cedula_ruc,

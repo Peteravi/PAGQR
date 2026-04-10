@@ -4,11 +4,11 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const {
-DB_HOST = 'mysql.railway.internal',
-DB_PORT = 3306,
-DB_USER = 'root',
-DB_PASSWORD = 'EszZHkoRYvjPnEUDXhqxwwXghsFMsKDu',
-DB_NAME = 'railway'
+  DB_HOST = 'mysql.railway.internal',
+  DB_PORT = 3306,
+  DB_USER = 'root',
+  DB_PASSWORD = 'EszZHkoRYvjPnEUDXhqxwwXghsFMsKDu',
+  DB_NAME = 'railway'
 } = process.env;
 
 const REQUIRED_TABLES = [
@@ -31,7 +31,8 @@ const REQUIRED_INDEXES = [
   { table: 'pagos', index: 'idx_pagos_estado', sql: 'CREATE INDEX idx_pagos_estado ON pagos(estado)' },
   { table: 'entradas', index: 'idx_entradas_evento', sql: 'CREATE INDEX idx_entradas_evento ON entradas(id_evento)' },
   { table: 'entradas', index: 'idx_entradas_estado', sql: 'CREATE INDEX idx_entradas_estado ON entradas(estado)' },
-  { table: 'validaciones_qr', index: 'idx_validaciones_fecha', sql: 'CREATE INDEX idx_validaciones_fecha ON validaciones_qr(fecha_validacion)' }
+  { table: 'validaciones_qr', index: 'idx_validaciones_fecha', sql: 'CREATE INDEX idx_validaciones_fecha ON validaciones_qr(fecha_validacion)' },
+  { table: 'ordenes', index: 'idx_ordenes_expiracion', sql: 'CREATE INDEX idx_ordenes_expiracion ON ordenes(estado, fecha_expiracion)' }
 ];
 
 async function ensureDatabase() {
@@ -65,6 +66,78 @@ async function runInitSql(pool) {
   const sql = fs.readFileSync(sqlPath, 'utf8');
   await pool.query(sql);
   console.log('✅ Script init.sql ejecutado');
+}
+
+async function ensureColumnExists(pool, tableName, columnName, alterSql) {
+  const [rows] = await pool.query(
+    `
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = ?
+      AND table_name = ?
+      AND column_name = ?
+    LIMIT 1
+    `,
+    [DB_NAME, tableName, columnName]
+  );
+
+  if (rows.length === 0) {
+    await pool.query(alterSql);
+    console.log(`➕ Columna creada: ${tableName}.${columnName}`);
+  } else {
+    console.log(`✅ Columna existente: ${tableName}.${columnName}`);
+  }
+}
+
+async function ensureOrdenesEstadoEnum(pool) {
+  const [rows] = await pool.query(
+    `
+    SELECT COLUMN_TYPE
+    FROM information_schema.columns
+    WHERE table_schema = ?
+      AND table_name = 'ordenes'
+      AND column_name = 'estado'
+    LIMIT 1
+    `,
+    [DB_NAME]
+  );
+
+  if (!rows.length) {
+    throw new Error('No se encontró la columna ordenes.estado');
+  }
+
+  const columnType = String(rows[0].COLUMN_TYPE || '').toLowerCase();
+
+  if (columnType.includes("'expirada'")) {
+    console.log('✅ ENUM existente: ordenes.estado ya incluye "expirada"');
+    return;
+  }
+
+  await pool.query(`
+    ALTER TABLE ordenes
+    MODIFY COLUMN estado ENUM('pendiente', 'pagada', 'fallida', 'cancelada', 'reembolsada', 'expirada')
+    NOT NULL DEFAULT 'pendiente'
+  `);
+
+  console.log('➕ ENUM actualizado: ordenes.estado ahora incluye "expirada"');
+}
+
+async function ensureOrdenesSchema(pool) {
+  await ensureColumnExists(
+    pool,
+    'ordenes',
+    'fecha_expiracion',
+    `ALTER TABLE ordenes ADD COLUMN fecha_expiracion DATETIME NULL AFTER metodo_pago`
+  );
+
+  await ensureColumnExists(
+    pool,
+    'ordenes',
+    'observacion',
+    `ALTER TABLE ordenes ADD COLUMN observacion TEXT NULL AFTER fecha_expiracion`
+  );
+
+  await ensureOrdenesEstadoEnum(pool);
 }
 
 async function ensureIndexes(pool) {
@@ -117,8 +190,9 @@ async function initDatabase(pool) {
     await ensureDatabase();
     await testConnection(pool);
     await runInitSql(pool);
-    await ensureIndexes(pool);
     await verifyTables(pool);
+    await ensureOrdenesSchema(pool);
+    await ensureIndexes(pool);
     console.log('✅ Base de datos lista y validada');
   } catch (error) {
     console.error('❌ Error inicializando la base de datos:', error.message);

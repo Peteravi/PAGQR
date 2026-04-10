@@ -3,6 +3,11 @@ const QRCode = require('qrcode');
 const router = express.Router();
 const db = require('../config/db');
 
+const ORDER_EXPIRATION_MINUTES = (() => {
+    const raw = Number(process.env.ORDER_EXPIRATION_MINUTES);
+    return Number.isInteger(raw) && raw > 0 ? raw : 15;
+})();
+
 function generarCodigoOrden() {
     return `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
@@ -42,6 +47,13 @@ function normalizeString(value) {
 
 function normalizeLower(value) {
     return normalizeString(value).toLowerCase();
+}
+
+function addMinutesSafe(value, minutes) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setMinutes(date.getMinutes() + minutes);
+    return date.toISOString();
 }
 
 // =========================
@@ -273,12 +285,23 @@ router.post('/', async (req, res) => {
         const codigo_orden = generarCodigoOrden();
 
         const [ordenInsert] = await connection.execute(
-            `INSERT INTO ordenes (id_cliente, codigo_orden, subtotal, iva, total, estado, fecha_creacion, fecha_actualizacion)
-             VALUES (?, ?, ?, ?, ?, 'pendiente', NOW(), NOW())`,
-            [id_cliente, codigo_orden, subtotalFinal, ivaFinal, totalFinal]
+            `INSERT INTO ordenes (
+                id_cliente,
+                codigo_orden,
+                subtotal,
+                iva,
+                total,
+                estado,
+                fecha_creacion,
+                fecha_actualizacion,
+                fecha_expiracion
+            )
+             VALUES (?, ?, ?, ?, ?, 'pendiente', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+            [id_cliente, codigo_orden, subtotalFinal, ivaFinal, totalFinal, ORDER_EXPIRATION_MINUTES]
         );
 
         const id_orden = ordenInsert.insertId;
+        const fechaExpiracion = addMinutesSafe(new Date(), ORDER_EXPIRATION_MINUTES);
 
         for (const item of itemsValidados) {
             await connection.execute(
@@ -313,6 +336,8 @@ router.post('/', async (req, res) => {
                 subtotal: subtotalFinal,
                 iva: ivaFinal,
                 total: totalFinal,
+                fecha_expiracion: fechaExpiracion,
+                minutos_expiracion: ORDER_EXPIRATION_MINUTES,
                 cliente: {
                     id_cliente,
                     nombres,
@@ -370,6 +395,7 @@ router.get('/:id/entradas', async (req, res) => {
                 o.estado,
                 o.fecha_creacion,
                 o.fecha_actualizacion,
+                o.fecha_expiracion,
                 c.nombres,
                 c.apellidos,
                 c.email,
@@ -515,6 +541,7 @@ router.get('/:id/entradas', async (req, res) => {
             (
                 estadoOrden === 'fallida' ||
                 estadoOrden === 'cancelada' ||
+                estadoOrden === 'expirada' ||
                 estadoPago === 'rechazado' ||
                 estadoPago === 'anulado'
             );
@@ -528,6 +555,7 @@ router.get('/:id/entradas', async (req, res) => {
                 estado: orden.estado,
                 fecha_creacion: toIsoSafe(orden.fecha_creacion),
                 fecha_actualizacion: toIsoSafe(orden.fecha_actualizacion),
+                fecha_expiracion: toIsoSafe(orden.fecha_expiracion),
                 comprador: {
                     nombres: orden.nombres,
                     apellidos: orden.apellidos,
@@ -604,6 +632,7 @@ router.get('/:id', async (req, res) => {
                 o.estado,
                 o.fecha_creacion,
                 o.fecha_actualizacion,
+                o.fecha_expiracion,
                 c.id_cliente,
                 c.nombres,
                 c.apellidos,
@@ -659,6 +688,7 @@ router.get('/:id', async (req, res) => {
                 estado: orden.estado,
                 fecha_creacion: toIsoSafe(orden.fecha_creacion),
                 fecha_actualizacion: toIsoSafe(orden.fecha_actualizacion),
+                fecha_expiracion: toIsoSafe(orden.fecha_expiracion),
                 cliente: {
                     id_cliente: orden.id_cliente,
                     nombres: orden.nombres,
