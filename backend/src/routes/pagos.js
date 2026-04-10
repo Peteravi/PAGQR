@@ -843,14 +843,25 @@ router.get('/webhook', async (req, res) => {
     const transactionId = getTransactionIdFromPayload(payload);
     let clientTransactionId = getClientTransactionIdFromPayload(payload);
 
-    // 1. Validamos que PayPhone al menos nos mande el ID
     if (!transactionId) {
-        const errorUrl = buildFrontendRedirectUrl('/error-pago.html', { reason: 'parametros_invalidos' });
-        return res.redirect(errorUrl);
+        return res.redirect(buildFrontendRedirectUrl('/error-pago.html', { reason: 'parametros_invalidos' }));
     }
 
-    // 2. EL FIX ANTI-TRAMPAS: Si PayPhone no mandó el código de la orden en la URL, 
-    // se lo preguntamos directamente a su base de datos.
+    if (clientTransactionId) {
+        try {
+            const isPaid = await checkIfOrderIsPaidSafe(clientTransactionId);
+            if (isPaid) {
+                console.log(`✅ [GET] Orden ${clientTransactionId} ya estaba pagada. Redirigiendo directo a éxito.`);
+                return res.redirect(buildFrontendRedirectUrl('/exito-pago.html', {
+                    orden: clientTransactionId,
+                    tx: transactionId
+                }));
+            }
+        } catch (e) {
+            console.log('Error verificando estado previo:', e.message);
+        }
+    }
+
     if (!clientTransactionId) {
         try {
             const pagoReal = await PayphoneService.verificarPago(transactionId);
@@ -861,30 +872,26 @@ router.get('/webhook', async (req, res) => {
     }
 
     if (!clientTransactionId) {
-        const errorUrl = buildFrontendRedirectUrl('/error-pago.html', { reason: 'orden_no_encontrada' });
-        return res.redirect(errorUrl);
+        return res.redirect(buildFrontendRedirectUrl('/error-pago.html', { reason: 'orden_no_encontrada' }));
     }
 
-    // 3. Procesamos el pago real
     const result = await processApprovedPayment(transactionId, clientTransactionId);
 
-    // Si el pago no fue exitoso
     if (!result.ok) {
         const errorUrl = buildFrontendRedirectUrl('/error-pago.html', {
             orden: clientTransactionId,
             tx: transactionId,
-            reason: 'pago_no_aprobado'
+            reason: 'pago_no_aprobado',
+            msg: result.message
         });
         return res.redirect(errorUrl);
     }
 
-    // 4. EL FIX DEL RECIBO: Te devolvemos a tu página de exito-pago.html (no a confirmación directo)
-    const successUrl = buildFrontendRedirectUrl('/exito-pago.html', {
+    // Éxito total
+    return res.redirect(buildFrontendRedirectUrl('/exito-pago.html', {
         orden: clientTransactionId,
         tx: transactionId
-    });
-
-    return res.redirect(successUrl);
+    }));
 });
 
 module.exports = router;
