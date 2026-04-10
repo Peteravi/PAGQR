@@ -40,18 +40,73 @@ function safeJsonStringify(value) {
     }
 }
 
+function getPayloadValue(payload, ...keys) {
+    if (!payload || typeof payload !== 'object') return '';
+
+    for (const key of keys) {
+        const value = payload[key];
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+            return String(value).trim();
+        }
+    }
+
+    return '';
+}
+
+function getTransactionIdFromPayload(payload) {
+    return getPayloadValue(
+        payload,
+        'id',
+        'transactionId',
+        'transactionID',
+        'Id',
+        'TransactionId',
+        'TransactionID'
+    );
+}
+
+function getClientTransactionIdFromPayload(payload) {
+    return getPayloadValue(
+        payload,
+        'clientTransactionId',
+        'clientTransactionID',
+        'ClientTransactionId',
+        'ClientTransactionID'
+    );
+}
+
 function isApprovedTransaction(pagoReal) {
     if (!pagoReal || typeof pagoReal !== 'object') return false;
 
-    const transactionStatus = String(pagoReal.transactionStatus || '').trim().toLowerCase();
-    const statusCode = Number(pagoReal.statusCode);
+    const transactionStatus = String(
+        pagoReal.transactionStatus ||
+        pagoReal.status ||
+        pagoReal.transaction_state ||
+        ''
+    ).trim().toLowerCase();
+
+    const statusCode = Number(
+        pagoReal.statusCode ??
+        pagoReal.status_code ??
+        pagoReal.code
+    );
 
     return transactionStatus === 'approved' || statusCode === 3;
 }
 
 function mapGatewayStatusToPagoEstado(pagoReal) {
-    const status = normalizeLower(pagoReal?.transactionStatus);
-    const statusCode = Number(pagoReal?.statusCode);
+    const status = normalizeLower(
+        pagoReal?.transactionStatus ||
+        pagoReal?.status ||
+        pagoReal?.transaction_state ||
+        ''
+    );
+
+    const statusCode = Number(
+        pagoReal?.statusCode ??
+        pagoReal?.status_code ??
+        pagoReal?.code
+    );
 
     if (status === 'approved' || statusCode === 3) return 'aprobado';
     if (status === 'pending') return 'pendiente';
@@ -137,12 +192,30 @@ function getAuthorizationCodeFromGateway(pagoReal) {
 function getGatewayReference(pagoReal, fallbackClientTransactionId) {
     return normalizeString(
         pagoReal?.clientTransactionId ||
+        pagoReal?.clientTransactionID ||
         pagoReal?.reference ||
         pagoReal?.referenceCode ||
         pagoReal?.transactionId ||
+        pagoReal?.transactionID ||
         fallbackClientTransactionId ||
         ''
     ) || null;
+}
+
+function getFrontendBaseUrl() {
+    return (process.env.FRONTEND_URL || 'https://pagqr-production.up.railway.app').replace(/\/+$/, '');
+}
+
+function buildFrontendRedirectUrl(pathname, params = {}) {
+    const url = new URL(`${getFrontendBaseUrl()}${pathname.startsWith('/') ? pathname : `/${pathname}`}`);
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+            url.searchParams.set(key, String(value).trim());
+        }
+    }
+
+    return url.toString();
 }
 
 /**
@@ -362,6 +435,268 @@ async function upsertPagoAprobado(connection, orderRow, transactionId, clientTra
     return insertResult.insertId;
 }
 
+async function markPaymentAsNotApproved(clientTransactionId, transactionId, pagoReal) {
+    const gatewayEstado = mapGatewayStatusToPagoEstado(pagoReal);
+
+    try {
+        const [ordenRows] = await db.execute(
+            `
+            SELECT id_orden, codigo_orden, total, estado
+            FROM ordenes
+            WHERE codigo_orden = ?
+            LIMIT 1
+            `,
+            [clientTransactionId]
+        );
+
+        if (ordenRows.length > 0) {
+            const orden = ordenRows[0];
+
+            await db.execute(
+                `
+                UPDATE pagos
+                SET
+                    proveedor_pago = 'Payphone',
+                    transaccion_id = ?,
+                    referencia_pago = ?,
+                    authorization_code = ?,
+                    monto = ?,
+                    moneda = 'USD',
+                    estado = ?,
+                    respuesta_gateway = ?,
+                    fecha_actualizacion = NOW()
+                WHERE id_orden = ?
+                `,
+                [
+                    String(transactionId),
+                    getGatewayReference(pagoReal, clientTransactionId),
+                    getAuthorizationCodeFromGateway(pagoReal),
+                    Number(orden.total || 0),
+                    gatewayEstado,
+                    safeJsonStringify(pagoReal),
+                    orden.id_orden
+                ]
+            );
+        }
+    } catch (updatePagoError) {
+        console.error('❌ Error actualizando pago rechazado/anulado:', updatePagoError.message);
+    }
+
+    if (
+        OrderBusiness &&
+        typeof OrderBusiness.handleFailedPayment === 'function'
+    ) {
+        try {
+            await OrderBusiness.handleFailedPayment(clientTransactionId);
+        } catch (rollbackError) {
+            console.error(`❌ [Rollback] Falló el rollback para ${clientTransactionId}:`, rollbackError.message);
+        }
+    } else {
+        console.warn(`⚠️ [Rollback] No existe OrderBusiness.handleFailedPayment para la orden ${clientTransactionId}.`);
+    }
+
+    return gatewayEstado;
+}
+
+async function processApprovedPayment(transactionId, clientTransactionId) {
+    let connection;
+
+    try {
+        console.log(`Consultando estado real de transacción: ${transactionId}`);
+        const pagoReal = await PayphoneService.verificarPago(transactionId);
+
+        if (!pagoReal || typeof pagoReal !== 'object') {
+            return {
+                ok: false,
+                statusCode: 502,
+                message: 'No se pudo verificar la transacción con el proveedor'
+            };
+        }
+
+        const gatewayEstado = mapGatewayStatusToPagoEstado(pagoReal);
+
+        if (!isApprovedTransaction(pagoReal)) {
+            console.warn(`❌ [Webhook] Pago no aprobado. Orden: ${clientTransactionId}. Estado gateway: ${gatewayEstado}`);
+
+            await markPaymentAsNotApproved(clientTransactionId, transactionId, pagoReal);
+
+            return {
+                ok: false,
+                statusCode: 400,
+                message: 'Transacción no aprobada, stock restaurado',
+                gatewayEstado
+            };
+        }
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [ordenRows] = await connection.execute(
+            `
+            SELECT
+                o.id_orden,
+                o.id_cliente,
+                o.codigo_orden,
+                o.total,
+                o.estado,
+                c.nombres,
+                c.apellidos,
+                c.email,
+                c.cedula_ruc,
+                c.direccion
+            FROM ordenes o
+            INNER JOIN clientes c ON c.id_cliente = o.id_cliente
+            WHERE o.codigo_orden = ?
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [clientTransactionId]
+        );
+
+        if (!ordenRows.length) {
+            await connection.rollback();
+            connection.release();
+            connection = null;
+
+            return {
+                ok: false,
+                statusCode: 404,
+                message: 'Orden no encontrada en base de datos'
+            };
+        }
+
+        const orden = ordenRows[0];
+        const estadoOrdenActual = normalizeLower(orden.estado);
+
+        const [existingEntriesRows] = await connection.execute(
+            `
+            SELECT COUNT(*) AS total
+            FROM entradas
+            WHERE id_orden = ?
+            `,
+            [orden.id_orden]
+        );
+
+        const totalEntradasExistentes = Number(existingEntriesRows[0]?.total || 0);
+
+        const [latestPagoRows] = await connection.execute(
+            `
+            SELECT id_pago, estado, transaccion_id
+            FROM pagos
+            WHERE id_orden = ?
+            ORDER BY id_pago DESC
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [orden.id_orden]
+        );
+
+        const latestPago = latestPagoRows[0] || null;
+
+        const yaProcesada =
+            estadoOrdenActual === 'pagada' ||
+            totalEntradasExistentes > 0 ||
+            normalizeLower(latestPago?.estado) === 'aprobado';
+
+        if (yaProcesada) {
+            await upsertPagoAprobado(connection, orden, transactionId, clientTransactionId, pagoReal);
+            await connection.commit();
+            connection.release();
+            connection = null;
+
+            console.log(`⚠️ [Idempotencia] La orden ${clientTransactionId} ya fue procesada previamente. No se duplicaron entradas.`);
+
+            return {
+                ok: true,
+                statusCode: 200,
+                message: 'Orden ya procesada anteriormente',
+                alreadyProcessed: true
+            };
+        }
+
+        await upsertPagoAprobado(connection, orden, transactionId, clientTransactionId, pagoReal);
+
+        await connection.execute(
+            `
+            UPDATE ordenes
+            SET
+                estado = 'pagada',
+                metodo_pago = 'Payphone',
+                observacion = CASE
+                    WHEN observacion IS NULL OR TRIM(observacion) = ''
+                    THEN ?
+                    ELSE CONCAT(observacion, ' | ', ?)
+                END,
+                fecha_actualizacion = NOW()
+            WHERE id_orden = ?
+            `,
+            [
+                `Pago aprobado por webhook. Transacción: ${transactionId}`,
+                `Pago aprobado por webhook. Transacción: ${transactionId}`,
+                orden.id_orden
+            ]
+        );
+
+        const entriesResult = await createEntriesForOrder(connection, orden);
+
+        await connection.commit();
+        connection.release();
+        connection = null;
+
+        console.log(
+            `✅ [Webhook] Orden ${clientTransactionId} pagada correctamente. Entradas creadas: ${entriesResult.created}`
+        );
+
+        try {
+            let datosCompletos = null;
+
+            if (
+                OrderDB &&
+                typeof OrderDB.obtenerDatosCompletosPorCodigo === 'function'
+            ) {
+                datosCompletos = await OrderDB.obtenerDatosCompletosPorCodigo(clientTransactionId);
+            }
+
+            if (datosCompletos) {
+                await BillBusiness.procesarFactura(datosCompletos);
+            } else {
+                console.warn(`⚠️ [Facturación] No se obtuvieron datos completos para la orden ${clientTransactionId}.`);
+            }
+        } catch (facturaError) {
+            console.error(`❌ [Facturación] Error procesando factura para ${clientTransactionId}:`, facturaError.message);
+        }
+
+        return {
+            ok: true,
+            statusCode: 200,
+            message: 'Webhook recibido, pago confirmado y entradas generadas',
+            entriesCreated: entriesResult.created
+        };
+    } catch (error) {
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error('❌ Error haciendo rollback de la transacción del webhook:', rollbackError.message);
+            }
+
+            try {
+                connection.release();
+            } catch (releaseError) {
+                console.error('❌ Error liberando conexión del webhook:', releaseError.message);
+            }
+        }
+
+        console.error('🚨 [Error Webhook] Fallo crítico al procesar:', error);
+
+        return {
+            ok: false,
+            statusCode: 500,
+            message: 'Error interno del servidor'
+        };
+    }
+}
+
 router.post('/generar-link', async (req, res) => {
     try {
         const { id_orden } = req.body || {};
@@ -450,7 +785,6 @@ router.post('/generar-link', async (req, res) => {
             paymentUrl: payData.paymentUrl || payData.payWithCard || payData.payWithPayPhone,
             codigoOrden: orden.codigo_orden
         });
-
     } catch (error) {
         console.error('❌ Error al generar link de pago:', error);
 
@@ -461,242 +795,96 @@ router.post('/generar-link', async (req, res) => {
     }
 });
 
+// =======================================================
+// 🛡️ WEBHOOK POST (ESCUDO ANTI-REVERSOS)
+// =======================================================
 router.post('/webhook', async (req, res) => {
-    console.log(`[WEBHOOK IN] Recibiendo notificación de pago... IP: ${req.ip}`);
+    console.log(`\n🚨 [WEBHOOK IN][POST] ¡PayPhone avisando pago!`);
 
-    let connection;
+    // 1. TRUCO DE MAGIA: Respondemos 200 OK inmediatamente.
+    // ¡ESTO BLOQUEA LOS REVERSOS DE PAYPHONE PARA SIEMPRE!
+    res.status(200).send('OK');
+
+    // 2. Procesamos en silencio
+    (async () => {
+        try {
+            let payload = req.body || {};
+            if (Buffer.isBuffer(payload)) {
+                payload = JSON.parse(payload.toString('utf8'));
+            }
+
+            const transactionId = getTransactionIdFromPayload(payload);
+            const clientTransactionId = getClientTransactionIdFromPayload(payload);
+
+            if (!transactionId || !clientTransactionId) {
+                console.warn('⚠️ [Seguridad] Webhook rechazado por falta de IDs.', payload);
+                return;
+            }
+
+            await processApprovedPayment(transactionId, clientTransactionId);
+        } catch (e) {
+            console.error('❌ [POST] Error procesando pago de fondo:', e.message);
+        }
+    })();
+});
+
+// =======================================================
+// 🚀 WEBHOOK GET (REDIRECCIÓN INTELIGENTE AL CLIENTE)
+// =======================================================
+router.get('/webhook', async (req, res) => {
+    console.log(`\n🚀 [WEBHOOK IN][GET] Cliente regresando a la pantalla...`);
+    
+    const payload = req.query || {};
+    const transactionId = getTransactionIdFromPayload(payload);
+    let clientTransactionId = getClientTransactionIdFromPayload(payload);
+
+    if (!transactionId) {
+        return res.redirect(buildFrontendRedirectUrl('/error-pago.html', { reason: 'parametros_invalidos' }));
+    }
 
     try {
-        const payload = req.body || {};
-        const transactionId = payload.id;
-        const clientTransactionId = normalizeString(payload.clientTransactionId);
-
-        if (!transactionId || (!isPositiveInteger(transactionId) && !isNonEmptyString(String(transactionId)))) {
-            console.warn('⚠️ [Seguridad] Webhook rechazado: id de transacción inválido.', payload);
-            return res.status(400).json({ error: 'Payload inválido: id requerido' });
-        }
-
-        if (!isNonEmptyString(clientTransactionId)) {
-            console.warn('⚠️ [Seguridad] Webhook rechazado: clientTransactionId inválido.', payload);
-            return res.status(400).json({ error: 'Payload inválido: clientTransactionId requerido' });
-        }
-
-        console.log(`Consultando estado real de transacción: ${transactionId}`);
-        const pagoReal = await PayphoneService.verificarPago(transactionId);
-
-        if (!pagoReal || typeof pagoReal !== 'object') {
-            console.warn(`⚠️ [Webhook] Respuesta inválida al verificar la transacción ${transactionId}.`);
-            return res.status(502).send('No se pudo verificar la transacción con el proveedor');
-        }
-
-        const gatewayEstado = mapGatewayStatusToPagoEstado(pagoReal);
-
-        if (!isApprovedTransaction(pagoReal)) {
-            console.warn(`❌ [Webhook] Pago no aprobado. Orden: ${clientTransactionId}. Estado gateway: ${gatewayEstado}`);
-
-            try {
-                const [ordenRows] = await db.execute(
-                    `
-                    SELECT id_orden, codigo_orden, total, estado
-                    FROM ordenes
-                    WHERE codigo_orden = ?
-                    LIMIT 1
-                    `,
-                    [clientTransactionId]
-                );
-
-                if (ordenRows.length > 0) {
-                    const orden = ordenRows[0];
-
-                    await db.execute(
-                        `
-                        UPDATE pagos
-                        SET
-                            proveedor_pago = 'Payphone',
-                            transaccion_id = ?,
-                            referencia_pago = ?,
-                            authorization_code = ?,
-                            monto = ?,
-                            moneda = 'USD',
-                            estado = ?,
-                            respuesta_gateway = ?,
-                            fecha_actualizacion = NOW()
-                        WHERE id_orden = ?
-                        `,
-                        [
-                            String(transactionId),
-                            getGatewayReference(pagoReal, clientTransactionId),
-                            getAuthorizationCodeFromGateway(pagoReal),
-                            Number(orden.total || 0),
-                            gatewayEstado,
-                            safeJsonStringify(pagoReal),
-                            orden.id_orden
-                        ]
-                    );
-                }
-            } catch (updatePagoError) {
-                console.error('❌ Error actualizando pago rechazado/anulado:', updatePagoError.message);
+        // FIX MAESTRO: Si la orden ya se pagó (el POST fue rápido), no explotamos
+        if (clientTransactionId) {
+            const isPaid = await checkIfOrderIsPaidSafe(clientTransactionId);
+            if (isPaid) {
+                return res.redirect(buildFrontendRedirectUrl('/exito-pago.html', {
+                    orden: clientTransactionId,
+                    tx: transactionId
+                }));
             }
-
-            if (
-                OrderBusiness &&
-                typeof OrderBusiness.handleFailedPayment === 'function'
-            ) {
-                try {
-                    await OrderBusiness.handleFailedPayment(clientTransactionId);
-                } catch (rollbackError) {
-                    console.error(`❌ [Rollback] Falló el rollback para ${clientTransactionId}:`, rollbackError.message);
-                }
-            } else {
-                console.warn(`⚠️ [Rollback] No existe OrderBusiness.handleFailedPayment para la orden ${clientTransactionId}.`);
-            }
-
-            return res.status(400).send('Transacción no aprobada, stock restaurado');
         }
 
-        connection = await db.getConnection();
-        await connection.beginTransaction();
-
-        const [ordenRows] = await connection.execute(
-            `
-            SELECT
-                o.id_orden,
-                o.id_cliente,
-                o.codigo_orden,
-                o.total,
-                o.estado,
-                c.nombres,
-                c.apellidos,
-                c.email,
-                c.cedula_ruc,
-                c.direccion
-            FROM ordenes o
-            INNER JOIN clientes c ON c.id_cliente = o.id_cliente
-            WHERE o.codigo_orden = ?
-            LIMIT 1
-            FOR UPDATE
-            `,
-            [clientTransactionId]
-        );
-
-        if (!ordenRows.length) {
-            await connection.rollback();
-            return res.status(404).send('Orden no encontrada en base de datos');
+        // Si Payphone no mandó el código de la orden, lo rastreamos
+        if (!clientTransactionId) {
+            const pagoReal = await PayphoneService.verificarPago(transactionId);
+            clientTransactionId = getGatewayReference(pagoReal, null);
         }
 
-        const orden = ordenRows[0];
-        const estadoOrdenActual = normalizeLower(orden.estado);
-
-        const [existingEntriesRows] = await connection.execute(
-            `
-            SELECT COUNT(*) AS total
-            FROM entradas
-            WHERE id_orden = ?
-            `,
-            [orden.id_orden]
-        );
-
-        const totalEntradasExistentes = Number(existingEntriesRows[0]?.total || 0);
-
-        const [latestPagoRows] = await connection.execute(
-            `
-            SELECT id_pago, estado, transaccion_id
-            FROM pagos
-            WHERE id_orden = ?
-            ORDER BY id_pago DESC
-            LIMIT 1
-            FOR UPDATE
-            `,
-            [orden.id_orden]
-        );
-
-        const latestPago = latestPagoRows[0] || null;
-
-        const yaProcesada =
-            estadoOrdenActual === 'pagada' ||
-            totalEntradasExistentes > 0 ||
-            normalizeLower(latestPago?.estado) === 'aprobado';
-
-        if (yaProcesada) {
-            await upsertPagoAprobado(connection, orden, transactionId, clientTransactionId, pagoReal);
-            await connection.commit();
-
-            console.log(`⚠️ [Idempotencia] La orden ${clientTransactionId} ya fue procesada previamente. No se duplicaron entradas.`);
-            return res.status(200).send('Orden ya procesada anteriormente');
+        if (!clientTransactionId) {
+            return res.redirect(buildFrontendRedirectUrl('/error-pago.html', { reason: 'orden_no_encontrada' }));
         }
 
-        await upsertPagoAprobado(connection, orden, transactionId, clientTransactionId, pagoReal);
-
-        await connection.execute(
-            `
-            UPDATE ordenes
-            SET
-                estado = 'pagada',
-                metodo_pago = 'Payphone',
-                observacion = CASE
-                    WHEN observacion IS NULL OR TRIM(observacion) = ''
-                    THEN ?
-                    ELSE CONCAT(observacion, ' | ', ?)
-                END,
-                fecha_actualizacion = NOW()
-            WHERE id_orden = ?
-            `,
-            [
-                `Pago aprobado por webhook. Transacción: ${transactionId}`,
-                `Pago aprobado por webhook. Transacción: ${transactionId}`,
-                orden.id_orden
-            ]
-        );
-
-        const entriesResult = await createEntriesForOrder(connection, orden);
-
-        await connection.commit();
-        connection.release();
-        connection = null;
-
-        console.log(
-            `✅ [Webhook] Orden ${clientTransactionId} pagada correctamente. Entradas creadas: ${entriesResult.created}`
-        );
-
-        try {
-            let datosCompletos = null;
-
-            if (
-                OrderDB &&
-                typeof OrderDB.obtenerDatosCompletosPorCodigo === 'function'
-            ) {
-                datosCompletos = await OrderDB.obtenerDatosCompletosPorCodigo(clientTransactionId);
-            }
-
-            if (datosCompletos) {
-                await BillBusiness.procesarFactura(datosCompletos);
-            } else {
-                console.warn(`⚠️ [Facturación] No se obtuvieron datos completos para la orden ${clientTransactionId}.`);
-            }
-        } catch (facturaError) {
-            console.error(`❌ [Facturación] Error procesando factura para ${clientTransactionId}:`, facturaError.message);
-            // No se responde error aquí porque el pago ya fue confirmado y persistido correctamente.
+        // Procesamos por si el POST del fondo aún no termina
+        const result = await processApprovedPayment(transactionId, clientTransactionId);
+        
+        if (!result.ok && !result.alreadyProcessed) {
+            return res.redirect(buildFrontendRedirectUrl('/error-pago.html', {
+                orden: clientTransactionId,
+                tx: transactionId,
+                reason: 'pago_no_aprobado',
+                msg: result.message
+            }));
         }
 
-        return res.status(200).send('Webhook recibido, pago confirmado y entradas generadas');
+        // ¡GOL! Te mandamos a la pantalla de éxito
+        return res.redirect(buildFrontendRedirectUrl('/exito-pago.html', {
+            orden: clientTransactionId,
+            tx: transactionId
+        }));
 
     } catch (error) {
-        if (connection) {
-            try {
-                await connection.rollback();
-            } catch (rollbackError) {
-                console.error('❌ Error haciendo rollback de la transacción del webhook:', rollbackError.message);
-            }
-
-            try {
-                connection.release();
-            } catch (releaseError) {
-                console.error('❌ Error liberando conexión del webhook:', releaseError.message);
-            }
-        }
-
-        console.error('🚨 [Error Webhook] Fallo crítico al procesar:', error);
-        return res.status(500).send('Error interno del servidor');
+        console.error('❌ [GET] Error al redirigir:', error.message);
+        return res.redirect(buildFrontendRedirectUrl('/error-pago.html', { reason: 'error_interno' }));
     }
 });
 
