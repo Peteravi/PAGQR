@@ -25,8 +25,8 @@ class PayphoneService {
                 amountWithTax: 0,
                 currency: "USD",
                 clientTransactionId: data.orderId,
-                responseUrl: `${this.frontendUrl}/exito-pago.html`,
-                cancellationUrl: `${this.frontendUrl}/error-pago.html`
+                responseUrl: `${this.frontendUrl}/api/pagos/webhook`,
+                cancellationUrl: `${this.frontendUrl}/api/pagos/webhook`
             };
 
             const response = await axios.post(this.apiUrl, payload, {
