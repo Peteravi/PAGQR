@@ -68,13 +68,19 @@ class PayphoneService {
      * Verifica el estado real de la transacción en Payphone
      * @param {string|number} transactionId
      */
-    async verificarPago(transactionId) {
+    async verificarPago(transactionId, clientTxId = "") {
         try {
-            const verifyUrl = `https://pay.payphonetodoesposible.com/api/Sale/${transactionId}`;
+            const verifyUrl = 'https://pay.payphonetodoesposible.com/api/button/V2/Confirm';
 
-            const response = await axios.get(verifyUrl, {
+            const payload = {
+                id: Number(transactionId),
+                clientTxId: String(clientTxId || "")
+            };
+
+            const response = await axios.post(verifyUrl, payload, {
                 headers: {
-                    'Authorization': 'Bearer ' + this.token
+                    'Authorization': 'Bearer ' + this.token,
+                    'Content-Type': 'application/json'
                 }
             });
 
@@ -86,7 +92,7 @@ class PayphoneService {
                 : error.message;
 
             console.error('❌ [Seguridad] Error verificando transacción en Payphone:', chismeReal);
-            throw new Error('No se pudo verificar la autenticidad del pago');
+            throw new Error('No se pudo verificar la autenticidad del pago: ' + chismeReal);
         }
     }
 }

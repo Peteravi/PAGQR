@@ -503,7 +503,7 @@ async function processApprovedPayment(transactionId, clientTransactionId) {
 
     try {
         console.log(`Consultando estado real de transacción: ${transactionId}`);
-        const pagoReal = await PayphoneService.verificarPago(transactionId);
+        const pagoReal = await PayphoneService.verificarPago(transactionId, clientTransactionId);
 
         if (!pagoReal || typeof pagoReal !== 'object') {
             return {
@@ -856,7 +856,7 @@ router.get('/webhook', async (req, res) => {
 
         // Si Payphone no mandó el código de la orden, lo rastreamos
         if (!clientTransactionId) {
-            const pagoReal = await PayphoneService.verificarPago(transactionId);
+            const pagoReal = await PayphoneService.verificarPago(transactionId, clientTransactionId);
             clientTransactionId = getGatewayReference(pagoReal, null);
         }
 
