@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 const router = express.Router();
 
@@ -49,68 +50,84 @@ router.get('/csrf', (req, res) => {
     });
 });
 
-router.post('/login', (req, res) => {
-    const adminUser = process.env.ADMIN_USER;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+router.post('/login', async (req, res) => {
+    try {
+        const adminUser = process.env.ADMIN_USER;
+        const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
 
-    if (!adminUser || !adminPassword) {
-        return res.status(500).json({
-            ok: false,
-            message: 'Faltan ADMIN_USER o ADMIN_PASSWORD en las variables de entorno.'
-        });
-    }
-
-    const username = String(req.body?.username || '').trim();
-    const password = String(req.body?.password || '');
-    const nextPath = normalizeNextPath(req.body?.next);
-
-    if (!username || !password) {
-        return res.status(400).json({
-            ok: false,
-            message: 'Debes ingresar usuario y contraseña.'
-        });
-    }
-
-    const validUser = safeEqual(username, adminUser);
-    const validPassword = safeEqual(password, adminPassword);
-
-    if (!validUser || !validPassword) {
-        return res.status(401).json({
-            ok: false,
-            message: 'Credenciales incorrectas.'
-        });
-    }
-
-    req.session.regenerate((err) => {
-        if (err) {
-            console.error('❌ Error regenerando sesión:', err);
+        if (!adminUser || !adminPasswordHash) {
             return res.status(500).json({
                 ok: false,
-                message: 'No se pudo iniciar sesión.'
+                message: 'Faltan ADMIN_USER o ADMIN_PASSWORD_HASH en las variables de entorno.'
             });
         }
 
-        req.session.adminAuthenticated = true;
-        req.session.adminUser = adminUser;
-        req.session.userRole = 'admin';
+        const username = String(req.body?.username || '').trim();
+        const password = String(req.body?.password || '');
+        const nextPath = normalizeNextPath(req.body?.next);
 
-        req.session.save((saveErr) => {
-            if (saveErr) {
-                console.error('❌ Error guardando sesión:', saveErr);
+        if (!username || !password) {
+            return res.status(400).json({
+                ok: false,
+                message: 'Debes ingresar usuario y contraseña.'
+            });
+        }
+
+        const validUser = safeEqual(username, adminUser);
+
+        if (!validUser) {
+            return res.status(401).json({
+                ok: false,
+                message: 'Credenciales incorrectas.'
+            });
+        }
+
+        const validPassword = await bcrypt.compare(password, adminPasswordHash);
+
+        if (!validPassword) {
+            return res.status(401).json({
+                ok: false,
+                message: 'Credenciales incorrectas.'
+            });
+        }
+
+        req.session.regenerate((err) => {
+            if (err) {
+                console.error('❌ Error regenerando sesión:', err);
                 return res.status(500).json({
                     ok: false,
-                    message: 'No se pudo guardar la sesión.'
+                    message: 'No se pudo iniciar sesión.'
                 });
             }
 
-            return res.json({
-                ok: true,
-                message: 'Login correcto.',
-                redirectTo: nextPath,
-                csrfToken: req.csrfToken ? req.csrfToken() : null
+            req.session.adminAuthenticated = true;
+            req.session.adminUser = adminUser;
+            req.session.userRole = 'admin';
+
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('❌ Error guardando sesión:', saveErr);
+                    return res.status(500).json({
+                        ok: false,
+                        message: 'No se pudo guardar la sesión.'
+                    });
+                }
+
+                return res.json({
+                    ok: true,
+                    message: 'Login correcto.',
+                    redirectTo: nextPath,
+                    csrfToken: req.csrfToken ? req.csrfToken() : null
+                });
             });
         });
-    });
+    } catch (error) {
+        console.error('❌ Error en login admin:', error);
+        return res.status(500).json({
+            ok: false,
+            message: 'Error interno al iniciar sesión.'
+        });
+    }
 });
 
 router.post('/logout', (req, res) => {

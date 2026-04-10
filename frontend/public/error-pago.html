@@ -14,36 +14,122 @@
 
 <body>
 
+    <header class="topbar">
+        <div class="container-custom">
+            <a href="index.html" class="brand">PagQR</a>
+            <nav class="nav-links">
+                <a href="index.html">Inicio</a>
+                <a href="mis-entradas.html">Mis entradas</a>
+                <a href="#">Contacto</a>
+            </nav>
+        </div>
+    </header>
+
     <main class="error-page">
-        <div class="error-wrapper">
-            <div class="error-card">
-                <div class="error-icon">!</div>
-                <p class="small-label">Transacción no completada</p>
-                <h1>No se pudo procesar el pago</h1>
-                <p class="error-text">
-                    Tu pago no fue confirmado. Esto puede deberse a una cancelación,
-                    fondos insuficientes o un problema temporal con la pasarela.
-                </p>
+        <section class="error-hero">
+            <div class="container-custom">
+                <div class="hero-card">
+                    <div class="status-badge danger-badge">
+                        <span class="dot"></span>
+                        Pago no completado
+                    </div>
 
-                <div class="error-summary">
-                    <div><span>Evento</span><strong>Festival Music Night</strong></div>
-                    <div><span>Orden</span><strong>#ORD-2026-00145</strong></div>
-                    <div><span>Monto</span><strong>$25.00</strong></div>
-                    <div><span>Estado</span><strong class="danger-text">Pendiente / Fallido</strong></div>
+                    <div class="hero-content">
+                        <div class="hero-left">
+                            <div class="error-icon">!</div>
+                            <h1>No se pudo procesar el pago</h1>
+                            <p id="heroMessage">
+                                Estamos revisando el estado de tu orden. Si el pago no fue aprobado,
+                                podrás reintentar la compra o revisar el resumen de la transacción.
+                            </p>
+
+                            <div class="hero-actions">
+                                <button class="btn-main" data-bs-toggle="modal" data-bs-target="#resumenModal">
+                                    Ver resumen
+                                </button>
+                                <button class="btn-secondary-custom" data-bs-toggle="modal"
+                                    data-bs-target="#ayudaModal">
+                                    Ver ayuda
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="hero-right">
+                            <div class="status-preview-card">
+                                <h3>Estado de la orden</h3>
+                                <div class="status-box">
+                                    <div class="status-box-icon">×</div>
+                                    <p class="code-label">Código de orden</p>
+                                    <strong class="ticket-code" id="codigoOrdenHero">No disponible</strong>
+                                    <p class="status-message danger-text" id="estadoPrincipalHero">
+                                        Pendiente / Fallido
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </div>
+        </section>
 
-                <div class="action-group">
-                    <a href="index.html" class="btn-main">Volver a eventos</a>
-                    <button class="btn-outline-custom" data-bs-toggle="modal" data-bs-target="#reintentarModal">
-                        Reintentar pago
-                    </button>
-                    <button class="btn-light-custom" data-bs-toggle="modal" data-bs-target="#ayudaModal">
-                        Ver ayuda
-                    </button>
+        <section class="error-details">
+            <div class="container-custom details-grid">
+                <article class="info-card">
+                    <h2>Detalles del evento</h2>
+                    <div class="detail-item"><span>Evento</span><strong id="detalleEvento">Consultando
+                            información...</strong></div>
+                    <div class="detail-item"><span>Fecha</span><strong id="detalleFecha">No disponible</strong></div>
+                    <div class="detail-item"><span>Hora</span><strong id="detalleHora">No disponible</strong></div>
+                    <div class="detail-item"><span>Lugar</span><strong id="detalleLugar">No disponible</strong></div>
+                    <div class="detail-item"><span>Cantidad</span><strong id="detalleCantidad">0 entradas</strong></div>
+                </article>
+
+                <article class="info-card">
+                    <h2>Datos del comprador</h2>
+                    <div class="detail-item"><span>Nombre</span><strong id="detalleNombre">No disponible</strong></div>
+                    <div class="detail-item"><span>Correo</span><strong id="detalleCorreo">No disponible</strong></div>
+                    <div class="detail-item"><span>Teléfono</span><strong id="detalleTelefono">No disponible</strong>
+                    </div>
+                    <div class="detail-item"><span>Documento</span><strong id="detalleDocumento">No disponible</strong>
+                    </div>
+                    <div class="detail-item"><span>Total</span><strong id="detalleTotal">$0.00</strong></div>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer-custom">
+        <div class="container-custom">
+            <p>© 2026 PagQR - Plataforma de venta de entradas online</p>
+        </div>
+    </footer>
+
+    <!-- Modal Resumen -->
+    <div class="modal fade" id="resumenModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-custom">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title">Resumen del pago no completado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="resume-list">
+                        <div><span>Evento</span><strong id="resumenEvento">Consultando...</strong></div>
+                        <div><span>Cantidad</span><strong id="resumenCantidad">0</strong></div>
+                        <div><span>Precio unitario</span><strong id="resumenPrecio">$0.00</strong></div>
+                        <div><span>Método de pago</span><strong id="resumenMetodo">PayPhone</strong></div>
+                        <div><span>Estado</span><strong class="danger-text" id="resumenEstado">Pendiente /
+                                Fallido</strong></div>
+                        <div><span>Total</span><strong id="resumenTotal">$0.00</strong></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button class="btn-secondary-custom" data-bs-dismiss="modal">Cerrar</button>
+                    <a href="index.html" class="btn-main">Volver a comprar</a>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <!-- Modal Reintentar -->
     <div class="modal fade" id="reintentarModal" tabindex="-1" aria-hidden="true">
@@ -54,14 +140,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
-                    <p>
-                        Podrás volver al proceso de compra y realizar nuevamente el pago
-                        de tu entrada para el evento seleccionado.
+                    <p id="reintentoTexto">
+                        Podrás volver al proceso de compra y realizar nuevamente el pago de tu entrada.
                     </p>
 
                     <div class="mini-summary">
-                        <div><span>Evento</span><strong>Festival Music Night</strong></div>
-                        <div><span>Total</span><strong>$25.00</strong></div>
+                        <div><span>Evento</span><strong id="reintentoEvento">Consultando...</strong></div>
+                        <div><span>Total</span><strong id="reintentoTotal">$0.00</strong></div>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
@@ -85,14 +170,25 @@
                         <li>Verifica que tu método de pago tenga saldo disponible.</li>
                         <li>Confirma que los datos ingresados sean correctos.</li>
                         <li>Reintenta en unos minutos si hubo un error temporal.</li>
+                        <li>Si el pago sí se debitó, revisa primero en “Mis entradas” o vuelve a consultar la orden.
+                        </li>
                         <li>Contacta soporte si el problema persiste.</li>
                     </ul>
+                    <div class="help-note" id="helpReasonNote">
+                        Motivo detectado: no disponible.
+                    </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button class="btn-main" data-bs-dismiss="modal">Entendido</button>
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="floating-actions">
+        <button class="btn-outline-custom" data-bs-toggle="modal" data-bs-target="#reintentarModal">
+            Reintentar pago
+        </button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
