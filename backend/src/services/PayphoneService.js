@@ -70,7 +70,7 @@ class PayphoneService {
      */
     async verificarPago(transactionId) {
         try {
-            const verifyUrl = `https://pay.payphonetodoesposible.com/api/button/V2/${transactionId}`;
+            const verifyUrl = `https://pay.payphonetodoesposible.com/api/Sale/${transactionId}`;
 
             const response = await axios.get(verifyUrl, {
                 headers: {
