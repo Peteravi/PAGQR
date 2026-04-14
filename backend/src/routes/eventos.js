@@ -247,6 +247,8 @@ router.post('/', upload, async (req, res) => {
                 organizador,
                 estado,
                 precio,
+                payphone_app_id,
+                payphone_token,
                 fecha_creacion,
                 fecha_actualizacion
             )
@@ -265,7 +267,9 @@ router.post('/', upload, async (req, res) => {
             imagenUrl,
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
-            dataNormalizada.precio
+            dataNormalizada.precio,
+            dataNormalizada.payphone_app_id,
+            dataNormalizada.payphone_token
         ]);
 
         return res.json({
@@ -458,6 +462,8 @@ router.put('/:id', upload, async (req, res) => {
                 organizador = ?,
                 estado = ?,
                 precio = ?,
+                payphone_app_id = ?,
+                payphone_token = ?,
                 fecha_actualizacion = NOW()
             WHERE id_evento = ?
         `;
@@ -475,6 +481,8 @@ router.put('/:id', upload, async (req, res) => {
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
             dataNormalizada.precio,
+            dataNormalizada.payphone_app_id,
+            dataNormalizada.payphone_token,
             Number(id)
         ]);
 
