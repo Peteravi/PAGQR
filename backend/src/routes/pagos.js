@@ -7,6 +7,7 @@ const PayphoneService = require('../services/PayphoneService');
 const OrderBusiness = require('../business/OrderBusiness');
 const OrderDB = require('../database/OrderDB');
 const BillBusiness = require('../business/BillBusiness');
+const EmailService = require('../services/EmailService');
 
 /**
  * Helpers locales
@@ -691,6 +692,47 @@ async function processApprovedPayment(transactionId, clientTransactionId) {
             }
         } catch (facturaError) {
             console.error(`❌ [Facturación] Error procesando factura para ${clientTransactionId}:`, facturaError.message);
+        }
+
+        try {
+            const [entradasRows] = await db.execute(
+                `
+                SELECT 
+                    en.codigo_entrada,
+                    en.codigo_qr,
+                    en.estado AS estado_entrada,
+                    te.nombre AS tipo_nombre,
+                    e.titulo,
+                    e.fecha_evento,
+                    e.lugar,
+                    e.ciudad
+                FROM entradas en
+                INNER JOIN tipos_entrada te ON en.id_tipo_entrada = te.id_tipo_entrada
+                INNER JOIN eventos e ON en.id_evento = e.id_evento
+                WHERE en.id_orden = ?
+                `,
+                [orden.id_orden]
+            );
+
+            if (entradasRows.length > 0 && datosCompletos) {
+                const datosOrden = {
+                    email: datosCompletos.email,
+                    nombres: datosCompletos.nombres,
+                    apellidos: datosCompletos.apellidos,
+                    codigo_orden: datosCompletos.codigo_orden,
+                    total: datosCompletos.total,
+                    fecha_evento: entradasRows[0].fecha_evento,
+                    titulo: entradasRows[0].titulo,
+                    lugar: entradasRows[0].lugar,
+                    ciudad: entradasRows[0].ciudad
+                };
+
+                await EmailService.enviarConfirmacionCompra(datosOrden, entradasRows);
+            } else {
+                console.warn(`⚠️ [Email] No se pudieron obtener las entradas para enviar correo de la orden ${clientTransactionId}.`);
+            }
+        } catch (emailError) {
+            console.error(`❌ [Email] Error enviando correo de confirmación para ${clientTransactionId}:`, emailError.message);
         }
 
         return {
