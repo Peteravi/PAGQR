@@ -102,6 +102,13 @@ function sanitizeNullableString(value, maxLength = 255) {
     return str.length > maxLength ? str.slice(0, maxLength) : str;
 }
 
+function sanitizePayphoneToken(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    return str.length > 255 ? str.slice(0, 255) : str;
+}
+
 function validarCamposEvento(data) {
     const errores = [];
 
@@ -163,8 +170,8 @@ function validarCamposEvento(data) {
             organizador: sanitizeNullableString(data.organizador, 255),
             estado,
             precio: Number.isNaN(precioNum) ? 0 : precioNum,
-            payphone_app_id: sanitizeNullableString(data.payphone_app_id, 255),
-            payphone_token: sanitizeNullableString(data.payphone_token, 1000)
+            payphone_token: sanitizePayphoneToken(data.payphone_token),
+            payphone_app_id: sanitizePayphoneToken(data.payphone_app_id)
         }
     };
 }
@@ -240,8 +247,6 @@ router.post('/', upload, async (req, res) => {
                 organizador,
                 estado,
                 precio,
-                payphone_app_id,
-                payphone_token,
                 fecha_creacion,
                 fecha_actualizacion
             )
@@ -260,9 +265,7 @@ router.post('/', upload, async (req, res) => {
             imagenUrl,
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
-            dataNormalizada.precio,
-            dataNormalizada.payphone_app_id,
-            dataNormalizada.payphone_token
+            dataNormalizada.precio
         ]);
 
         return res.json({
@@ -452,8 +455,6 @@ router.put('/:id', upload, async (req, res) => {
                 organizador = ?,
                 estado = ?,
                 precio = ?,
-                payphone_app_id = ?,
-                payphone_token = ?,
                 fecha_actualizacion = NOW()
             WHERE id_evento = ?
         `;
@@ -471,8 +472,6 @@ router.put('/:id', upload, async (req, res) => {
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
             dataNormalizada.precio,
-            dataNormalizada.payphone_app_id,
-            dataNormalizada.payphone_token,
             Number(id)
         ]);
 
