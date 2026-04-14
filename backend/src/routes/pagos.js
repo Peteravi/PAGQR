@@ -122,6 +122,31 @@ function generateUniqueCode(prefix = 'ENT') {
     return `${prefix}-${now}-${rand}`;
 }
 
+async function obtenerCredencialesPayphone(codigoOrden) {
+    if (!codigoOrden) return null;
+    try {
+        const [rows] = await db.execute(`
+            SELECT e.payphone_app_id, e.payphone_token
+            FROM ordenes o
+            INNER JOIN orden_detalle od ON o.id_orden = od.id_orden
+            INNER JOIN tipos_entrada te ON od.id_tipo_entrada = te.id_tipo_entrada
+            INNER JOIN eventos e ON te.id_evento = e.id_evento
+            WHERE o.codigo_orden = ?
+            LIMIT 1
+        `, [codigoOrden]);
+
+        if (rows.length > 0 && rows[0].payphone_app_id && rows[0].payphone_token) {
+            return {
+                appId: rows[0].payphone_app_id.trim(),
+                token: rows[0].payphone_token.trim()
+            };
+        }
+    } catch (e) {
+        console.error("⚠️ Error buscando credenciales del evento:", e.message);
+    }
+    return null;
+}
+
 async function checkIfOrderIsPaidSafe(codigoOrden) {
     if (!isNonEmptyString(codigoOrden)) return false;
 
@@ -503,7 +528,9 @@ async function processApprovedPayment(transactionId, clientTransactionId) {
 
     try {
         console.log(`Consultando estado real de transacción: ${transactionId}`);
-        const pagoReal = await PayphoneService.verificarPago(transactionId, clientTransactionId);
+
+        const credencialesEvento = await obtenerCredencialesPayphone(clientTransactionId);
+        const pagoReal = await PayphoneService.verificarPago(transactionId, clientTransactionId, credencialesEvento);
 
         if (!pagoReal || typeof pagoReal !== 'object') {
             return {
@@ -755,10 +782,11 @@ router.post('/generar-link', async (req, res) => {
             });
         }
 
+        const credencialesEvento = await obtenerCredencialesPayphone(orden.codigo_orden);
         const payData = await PayphoneService.prepararBotonPago({
             amount,
             orderId: orden.codigo_orden
-        });
+        }, credencialesEvento);
 
         if (!payData.paymentUrl && !payData.payWithCard && !payData.payWithPayPhone) {
             return res.status(502).json({
@@ -833,7 +861,7 @@ router.post('/webhook', async (req, res) => {
 // =======================================================
 router.get('/webhook', async (req, res) => {
     console.log(`\n🚀 [WEBHOOK IN][GET] Cliente regresando a la pantalla...`);
-    
+
     const payload = req.query || {};
     const transactionId = getTransactionIdFromPayload(payload);
     let clientTransactionId = getClientTransactionIdFromPayload(payload);
@@ -866,7 +894,7 @@ router.get('/webhook', async (req, res) => {
 
         // Procesamos por si el POST del fondo aún no termina
         const result = await processApprovedPayment(transactionId, clientTransactionId);
-        
+
         if (!result.ok && !result.alreadyProcessed) {
             return res.redirect(buildFrontendRedirectUrl('/error-pago.html', {
                 orden: clientTransactionId,

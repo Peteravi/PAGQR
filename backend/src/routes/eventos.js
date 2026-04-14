@@ -162,7 +162,9 @@ function validarCamposEvento(data) {
             fecha_fin_evento: fecha_fin_evento || null,
             organizador: sanitizeNullableString(data.organizador, 255),
             estado,
-            precio: Number.isNaN(precioNum) ? 0 : precioNum
+            precio: Number.isNaN(precioNum) ? 0 : precioNum,
+            payphone_app_id: sanitizeNullableString(data.payphone_app_id, 255),
+            payphone_token: sanitizeNullableString(data.payphone_token, 1000)
         }
     };
 }
@@ -238,10 +240,12 @@ router.post('/', upload, async (req, res) => {
                 organizador,
                 estado,
                 precio,
+                payphone_app_id,
+                payphone_token,
                 fecha_creacion,
                 fecha_actualizacion
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `;
 
         const [result] = await db.execute(sql, [
@@ -256,7 +260,9 @@ router.post('/', upload, async (req, res) => {
             imagenUrl,
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
-            dataNormalizada.precio
+            dataNormalizada.precio,
+            dataNormalizada.payphone_app_id,
+            dataNormalizada.payphone_token
         ]);
 
         return res.json({
@@ -446,6 +452,8 @@ router.put('/:id', upload, async (req, res) => {
                 organizador = ?,
                 estado = ?,
                 precio = ?,
+                payphone_app_id = ?,
+                payphone_token = ?,
                 fecha_actualizacion = NOW()
             WHERE id_evento = ?
         `;
@@ -463,6 +471,8 @@ router.put('/:id', upload, async (req, res) => {
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
             dataNormalizada.precio,
+            dataNormalizada.payphone_app_id,
+            dataNormalizada.payphone_token,
             Number(id)
         ]);
 

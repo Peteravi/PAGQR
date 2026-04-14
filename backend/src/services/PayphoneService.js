@@ -2,8 +2,8 @@ const axios = require('axios');
 
 class PayphoneService {
     constructor() {
-        this.token = process.env.PAYPHONE_TOKEN;
-        this.appId = process.env.PAYPHONE_APP_ID;
+        this.defaultToken = process.env.PAYPHONE_TOKEN;
+        this.defaultAppId = process.env.PAYPHONE_APP_ID;
         this.frontendUrl = process.env.FRONTEND_URL || 'https://pagqr-production.up.railway.app';
 
         this.apiUrl = 'https://pay.payphonetodoesposible.com/api/button/Prepare';
@@ -12,13 +12,15 @@ class PayphoneService {
     /**
      * Prepara una transacción y obtiene las URLs de pago disponibles.
      * @param {Object} data
-     * @param {number} data.amount - Monto en centavos (ej: 1500 = $15.00)
-     * @param {string} data.orderId - Código único de la orden
+     * @param {Object} credenciales - Opcional { appId, token }
      */
-    async prepararBotonPago(data) {
+    async prepararBotonPago(data, credenciales = null) {
+        const appIdToUse = credenciales?.appId || this.defaultAppId;
+        const tokenToUse = credenciales?.token || this.defaultToken;
+
         try {
             const payload = {
-                appId: this.appId,
+                appId: appIdToUse,
                 amount: data.amount,
                 amountWithoutTax: data.amount,
                 tax: 0,
@@ -31,12 +33,12 @@ class PayphoneService {
 
             const response = await axios.post(this.apiUrl, payload, {
                 headers: {
-                    'Authorization': 'Bearer ' + this.token,
+                    'Authorization': 'Bearer ' + tokenToUse,
                     'Content-Type': 'application/json'
                 }
             });
 
-            console.log('✅ Payphone response completa:', JSON.stringify(response.data, null, 2));
+            console.log('✅ Payphone prepare exitoso con token terminado en:', tokenToUse.slice(-6));
 
             const {
                 paymentUrl,
@@ -67,8 +69,12 @@ class PayphoneService {
     /**
      * Verifica el estado real de la transacción en Payphone
      * @param {string|number} transactionId
+     * @param {string} clientTxId
+     * @param {Object} credenciales - Opcional { appId, token }
      */
-    async verificarPago(transactionId, clientTxId = "") {
+    async verificarPago(transactionId, clientTxId = "", credenciales = null) {
+        const tokenToUse = credenciales?.token || this.defaultToken;
+
         try {
             const verifyUrl = 'https://pay.payphonetodoesposible.com/api/button/V2/Confirm';
 
@@ -79,7 +85,7 @@ class PayphoneService {
 
             const response = await axios.post(verifyUrl, payload, {
                 headers: {
-                    'Authorization': 'Bearer ' + this.token,
+                    'Authorization': 'Bearer ' + tokenToUse,
                     'Content-Type': 'application/json'
                 }
             });
