@@ -140,12 +140,13 @@ async function ensureOrdenesSchema(pool) {
   await ensureOrdenesEstadoEnum(pool);
 }
 
+
 async function ensureEventosPayphoneColumns(pool) {
   await ensureColumnExists(
     pool,
     'eventos',
     'payphone_token',
-    `ALTER TABLE eventos ADD COLUMN payphone_token VARCHAR(500) NULL`
+    `ALTER TABLE eventos ADD COLUMN payphone_token TEXT NULL`
   );
 
   await ensureColumnExists(
