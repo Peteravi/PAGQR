@@ -140,6 +140,22 @@ async function ensureOrdenesSchema(pool) {
   await ensureOrdenesEstadoEnum(pool);
 }
 
+async function ensureEventosPayphoneColumns(pool) {
+  await ensureColumnExists(
+    pool,
+    'eventos',
+    'payphone_token',
+    `ALTER TABLE eventos ADD COLUMN payphone_token VARCHAR(255) NULL`
+  );
+
+  await ensureColumnExists(
+    pool,
+    'eventos',
+    'payphone_app_id',
+    `ALTER TABLE eventos ADD COLUMN payphone_app_id VARCHAR(255) NULL`
+  );
+}
+
 async function ensureIndexes(pool) {
   for (const item of REQUIRED_INDEXES) {
     const [rows] = await pool.query(
@@ -192,6 +208,7 @@ async function initDatabase(pool) {
     await runInitSql(pool);
     await verifyTables(pool);
     await ensureOrdenesSchema(pool);
+    await ensureEventosPayphoneColumns(pool);
     await ensureIndexes(pool);
     console.log('✅ Base de datos lista y validada');
   } catch (error) {

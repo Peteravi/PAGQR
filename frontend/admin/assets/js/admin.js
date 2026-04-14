@@ -400,6 +400,8 @@ async function editarEvento(id) {
         formEvento.organizador.value = evento.organizador || '';
         formEvento.estado.value = evento.estado || 'borrador';
         formEvento.precio.value = evento.precio || 0;
+        formEvento.payphone_token.value = evento.payphone_token || '';
+        formEvento.payphone_app_id.value = evento.payphone_app_id || '';
 
         const previewContainer = document.getElementById('imagenPreview');
         if (previewContainer && evento.imagen_url) {
