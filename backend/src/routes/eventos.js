@@ -106,7 +106,7 @@ function sanitizePayphoneToken(value) {
     if (value === undefined || value === null || value === '') return null;
     const str = String(value).trim();
     if (!str) return null;
-    return str.length > 255 ? str.slice(0, 255) : str;
+    return str;
 }
 
 function validarCamposEvento(data) {

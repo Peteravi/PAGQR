@@ -958,4 +958,30 @@ router.get('/webhook', async (req, res) => {
     }
 });
 
+router.get('/test-email', async (req, res) => {
+  try {
+    await EmailService.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: '',
+      subject: 'Prueba SMTP PAGQR',
+      html: `
+        <h2>Correo de prueba</h2>
+        <p></p>
+      `
+    });
+
+    return res.json({
+      ok: true,
+      message: 'Correo de prueba enviado correctamente'
+    });
+  } catch (error) {
+    console.error('❌ Error enviando correo de prueba:', error);
+    return res.status(500).json({
+      ok: false,
+      message: 'Error enviando correo de prueba',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
