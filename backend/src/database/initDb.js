@@ -145,14 +145,14 @@ async function ensureEventosPayphoneColumns(pool) {
     pool,
     'eventos',
     'payphone_token',
-    `ALTER TABLE eventos ADD COLUMN payphone_token VARCHAR(500) NULL`
+    `ALTER TABLE eventos ADD COLUMN payphone_token TEXT NULL`
   );
 
   await ensureColumnExists(
     pool,
     'eventos',
     'payphone_app_id',
-    `ALTER TABLE eventos ADD COLUMN payphone_app_id VARCHAR(255) NULL`
+    `ALTER TABLE eventos ADD COLUMN payphone_app_id VARCHAR(500) NULL`
   );
 }
 
