@@ -140,6 +140,7 @@ async function ensureOrdenesSchema(pool) {
   await ensureOrdenesEstadoEnum(pool);
 }
 
+
 async function ensureEventosPayphoneColumns(pool) {
   await ensureColumnExists(
     pool,

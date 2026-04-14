@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS eventos (
     organizador VARCHAR(150),
     precio DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     estado ENUM('borrador', 'publicado', 'agotado', 'cancelado', 'finalizado') NOT NULL DEFAULT 'borrador',
-    payphone_token TEXT NULL,
+    payphone_token TEXT  NULL,
     payphone_app_id VARCHAR(500) NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
