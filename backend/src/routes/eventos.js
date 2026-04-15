@@ -208,6 +208,31 @@ const upload = multer({
     }
 }).single('imagen');
 
+// ==========================================
+// 🚨 RUTA DE EMERGENCIA (BORRAR EN PRODUCCIÓN)
+// ==========================================
+router.get('/parche-db', async (req, res) => {
+    try {
+        // Obligamos a la base de datos a cambiar la columna a TEXT a la fuerza
+        await db.execute('ALTER TABLE eventos MODIFY COLUMN payphone_token TEXT');
+        res.send(`
+            <div style="font-family: Arial; padding: 50px; text-align: center; color: green;">
+                <h1>✅ ¡Cirugía exitosa, hermano!</h1>
+                <p>La columna payphone_token ahora es TEXT.</p>
+                <p>Ya puedes volver al panel y crear tu evento con las llaves de PayPhone.</p>
+                <a href="/admin" style="display:inline-block; margin-top:20px; padding:10px 20px; background:blue; color:white; text-decoration:none; border-radius:5px;">Volver al Admin</a>
+            </div>
+        `);
+    } catch (error) {
+        res.send(`
+            <div style="font-family: Arial; padding: 50px; text-align: center; color: red;">
+                <h1>❌ Algo falló en la cirugía</h1>
+                <p>Error de MySQL: ${error.message}</p>
+            </div>
+        `);
+    }
+});
+
 // =========================
 // CREAR EVENTO
 // =========================
@@ -247,6 +272,8 @@ router.post('/', upload, async (req, res) => {
                 organizador,
                 estado,
                 precio,
+                payphone_app_id,
+                payphone_token,
                 fecha_creacion,
                 fecha_actualizacion
             )
@@ -265,7 +292,9 @@ router.post('/', upload, async (req, res) => {
             imagenUrl,
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
-            dataNormalizada.precio
+            dataNormalizada.precio,
+            dataNormalizada.payphone_app_id,
+            dataNormalizada.payphone_token
         ]);
 
         return res.json({
@@ -275,9 +304,12 @@ router.post('/', upload, async (req, res) => {
         });
     } catch (error) {
         console.error('❌ ERROR CREAR EVENTO:', error);
+        if (req.file) {
+            eliminarArchivoSiExiste(`/uploads/eventos/${req.file.filename}`);
+        }
         return res.status(500).json({
             ok: false,
-            message: 'Error al crear evento'
+            message: `Error de Base de Datos: ${error.message}`
         });
     }
 });
@@ -455,6 +487,8 @@ router.put('/:id', upload, async (req, res) => {
                 organizador = ?,
                 estado = ?,
                 precio = ?,
+                payphone_app_id = ?,
+                payphone_token = ?,
                 fecha_actualizacion = NOW()
             WHERE id_evento = ?
         `;
@@ -472,6 +506,8 @@ router.put('/:id', upload, async (req, res) => {
             dataNormalizada.organizador,
             dataNormalizada.estado || 'borrador',
             dataNormalizada.precio,
+            dataNormalizada.payphone_app_id,
+            dataNormalizada.payphone_token,
             Number(id)
         ]);
 
@@ -493,7 +529,7 @@ router.put('/:id', upload, async (req, res) => {
 
         return res.status(500).json({
             ok: false,
-            message: 'Error al actualizar evento'
+            message: `Error de Base de Datos: ${error.message}`
         });
     }
 });
