@@ -962,7 +962,7 @@ router.get('/test-email', async (req, res) => {
   try {
     await EmailService.transporter.sendMail({
       from: process.env.SMTP_FROM,
-      to: '',
+      to: 'avilespiter35@gmail.com',
       subject: 'Prueba SMTP PAGQR',
       html: `
         <h2>Correo de prueba</h2>

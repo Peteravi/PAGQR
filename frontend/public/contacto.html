@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contacto - PagQR</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-qr-code-scan me-2"></i>PagQR
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuNavbar"
+                aria-controls="menuNavbar" aria-expanded="false" aria-label="Abrir navegación">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="menuNavbar">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="bi bi-house-door me-1"></i>Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/eventos">
+                            <i class="bi bi-calendar-event me-1"></i>Eventos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/mis-entradas">
+                            <i class="bi bi-ticket-perforated me-1"></i>Mis entradas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/contacto" aria-current="page">
+                            <i class="bi bi-envelope me-1"></i>Contacto
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero-home text-white py-5 position-relative overflow-hidden">
+        <div class="container text-center position-relative z-1 py-3">
+            <i class="bi bi-envelope-at display-1 mb-3 d-block"></i>
+            <h1 class="display-5 fw-bold mb-3">Contacto y Soporte</h1>
+            <p class="lead mb-0">
+                Estamos aquí para ayudarte con tus compras, pagos, entradas y cualquier duda sobre PagQR.
+            </p>
+        </div>
+    </header>
+
+    <main>
+        <section class="py-5">
+            <div class="container">
+                <div class="row g-4 justify-content-center align-items-stretch">
+
+                    <div class="col-lg-7">
+                        <div class="card h-100">
+                            <div class="card-body p-4 p-lg-5">
+                                <h2 class="card-title mb-3">
+                                    <i class="bi bi-chat-dots text-primary me-2"></i>Envíanos un mensaje
+                                </h2>
+
+                                <p class="text-muted mb-4">
+                                    Completa el formulario y nuestro equipo revisará tu solicitud lo antes posible.
+                                </p>
+
+                                <form id="contactoForm" novalidate>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label for="nombres" class="form-label fw-semibold">
+                                                <i class="bi bi-person me-1"></i>Nombres
+                                            </label>
+                                            <input type="text" class="form-control" id="nombres" name="nombres"
+                                                placeholder="Ingrese sus nombres" autocomplete="given-name" required />
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label for="apellidos" class="form-label fw-semibold">
+                                                <i class="bi bi-person-badge me-1"></i>Apellidos
+                                            </label>
+                                            <input type="text" class="form-control" id="apellidos" name="apellidos"
+                                                placeholder="Ingrese sus apellidos" autocomplete="family-name"
+                                                required />
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label for="email" class="form-label fw-semibold">
+                                                <i class="bi bi-envelope me-1"></i>Correo electrónico
+                                            </label>
+                                            <input type="email" class="form-control" id="email" name="email"
+                                                placeholder="ejemplo@correo.com" autocomplete="email" required />
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label for="telefono" class="form-label fw-semibold">
+                                                <i class="bi bi-telephone me-1"></i>Teléfono
+                                            </label>
+                                            <input type="tel" class="form-control" id="telefono" name="telefono"
+                                                placeholder="0999999999" autocomplete="tel" />
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label for="asunto" class="form-label fw-semibold">
+                                                <i class="bi bi-chat-left-text me-1"></i>Asunto
+                                            </label>
+                                            <select class="form-select" id="asunto" name="asunto" required>
+                                                <option value="">Seleccione un asunto</option>
+                                                <option value="consulta">Consulta sobre un evento</option>
+                                                <option value="compra">Problema con una compra</option>
+                                                <option value="entrada">Problema con mi entrada</option>
+                                                <option value="pago">Problema con el pago</option>
+                                                <option value="otro">Otro</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label for="mensaje" class="form-label fw-semibold">
+                                                <i class="bi bi-chat-square-text me-1"></i>Mensaje
+                                            </label>
+                                            <textarea class="form-control" id="mensaje" name="mensaje" rows="6"
+                                                placeholder="Describe tu inquietud..." required></textarea>
+                                        </div>
+
+                                        <div class="col-12 pt-2">
+                                            <div class="d-grid">
+                                                <button type="submit" class="btn btn-primary btn-lg" id="btnEnviar">
+                                                    <i class="bi bi-send me-2"></i>Enviar mensaje
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-5">
+                        <div class="row g-4 h-100">
+
+                            <div class="col-12">
+                                <div class="card h-100">
+                                    <div class="card-body p-4">
+                                        <h3 class="card-title mb-3">
+                                            <i class="bi bi-headset text-primary me-2"></i>Soporte técnico
+                                        </h3>
+
+                                        <p class="text-muted mb-4">
+                                            También puedes comunicarte directamente con nuestro equipo de soporte a
+                                            través
+                                            de los siguientes correos:
+                                        </p>
+
+                                        <div class="d-flex align-items-start p-3 bg-light rounded-3 mb-3">
+                                            <i class="bi bi-envelope-fill text-primary fs-4 me-3"></i>
+                                            <div>
+                                                <p class="mb-1 fw-semibold">pagqrticket@gmail.com</p>
+                                                <p class="mb-0 small text-muted">Atención general y soporte técnico</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex align-items-start p-3 bg-light rounded-3">
+                                            <i class="bi bi-envelope-fill text-primary fs-4 me-3"></i>
+                                            <div>
+                                                <p class="mb-1 fw-semibold">sogralquito@gmail.com</p>
+                                                <p class="mb-0 small text-muted">Consultas adicionales y seguimiento</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="card h-100">
+                                    <div class="card-body p-4">
+                                        <h3 class="card-title mb-3">
+                                            <i class="bi bi-info-circle text-primary me-2"></i>Antes de escribirnos
+                                        </h3>
+
+                                        <p class="card-text">
+                                            <i class="bi bi-check-circle-fill text-primary"></i>
+                                            Verifica que tu correo esté bien escrito para poder responderte.
+                                        </p>
+                                        <p class="card-text">
+                                            <i class="bi bi-check-circle-fill text-primary"></i>
+                                            Indica claramente si tu problema está relacionado con pago, compra o
+                                            entrada.
+                                        </p>
+                                        <p class="card-text mb-0">
+                                            <i class="bi bi-check-circle-fill text-primary"></i>
+                                            Si tienes un comprobante o número de orden, inclúyelo en tu mensaje.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">
+                <i class="bi bi-c-circle me-1"></i>2026 PagQR - Plataforma de venta de entradas online
+                <i class="bi bi-qr-code ms-2"></i>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/main.js"></script>
+    <script src="assets/js/contacto.js"></script>
+</body>
+
+</html>

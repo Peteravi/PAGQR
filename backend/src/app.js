@@ -16,6 +16,7 @@ const asistentesRoutes = require('./routes/asistentes');
 const adminAuthRoutes = require('./routes/admin-auth');
 const eventosPublicosRoutes = require('./routes/eventos-publicos');
 const facturasRoutes = require('./routes/facturas');
+const contactoRoutes = require('./routes/contacto');
 
 const {
     requireAdminPage,
@@ -105,6 +106,10 @@ app.use((req, res, next) => {
         return next();
     }
 
+    if (req.path === '/api/contacto' && req.method === 'POST') {
+        return next();
+    }
+
     if (req.path.startsWith('/api/admin-auth/')) {
         return csrfProtection(req, res, next);
     }
@@ -144,6 +149,7 @@ app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/entradas', entradasRoutes);
 app.use('/api/pagos', pagosRouter);
 app.use('/api/eventos-publicos', eventosPublicosRoutes);
+app.use('/api/contacto', contactoRoutes);
 
 // 🔐 Protegidas admin
 app.use('/api/eventos', requireAdminApi, eventosRoutes);
@@ -193,6 +199,10 @@ app.get('/eventos', (req, res) => {
 
 app.get('/confirmacion', (req, res) => {
     res.sendFile(path.join(__dirname, '../../frontend/public/confirmacion.html'));
+});
+
+app.get('/contacto', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../frontend/public/contacto.html'));
 });
 
 app.get('/error-pago', (req, res) => {
