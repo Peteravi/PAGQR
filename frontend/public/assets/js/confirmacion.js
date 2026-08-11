@@ -46,6 +46,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         return normalizeString(value).toLowerCase();
     }
 
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
     function getFriendlyStatusText(ordenEstado, pagoEstado) {
         const estadoOrden = normalizeLower(ordenEstado);
         const estadoPago = normalizeLower(pagoEstado);
@@ -63,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function setStatusBadge(statusBadge, text) {
         if (!statusBadge) return;
-        statusBadge.innerHTML = `<span class="dot"></span>${text}`;
+        statusBadge.innerHTML = `<span class="dot"></span>${escapeHtml(text)}`;
     }
 
     function setHeroMessage(heroTitle, heroText, mode, data) {
@@ -169,10 +178,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             if (buyerCardRows.length >= 5) {
-                buyerCardRows[0].innerHTML = `<span>Nombre</span><strong>${fullName || "No disponible"}</strong>`;
-                buyerCardRows[1].innerHTML = `<span>Correo</span><strong>${comprador.email || "No disponible"}</strong>`;
-                buyerCardRows[2].innerHTML = `<span>Teléfono</span><strong>${comprador.telefono || "No disponible"}</strong>`;
-                buyerCardRows[3].innerHTML = `<span>Documento</span><strong>${comprador.documento || "No disponible"}</strong>`;
+                buyerCardRows[0].innerHTML = `<span>Nombre</span><strong>${escapeHtml(fullName || "No disponible")}</strong>`;
+                buyerCardRows[1].innerHTML = `<span>Correo</span><strong>${escapeHtml(comprador.email || "No disponible")}</strong>`;
+                buyerCardRows[2].innerHTML = `<span>Teléfono</span><strong>${escapeHtml(comprador.telefono || "No disponible")}</strong>`;
+                buyerCardRows[3].innerHTML = `<span>Documento</span><strong>${escapeHtml(comprador.documento || "No disponible")}</strong>`;
                 buyerCardRows[4].innerHTML = `<span>Total pagado</span><strong>${formatPrice(orden.total)}</strong>`;
             }
         }
@@ -186,19 +195,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         if (ticketModalParagraphs.length >= 5) {
-            ticketModalParagraphs[0].innerHTML = `<strong>Orden:</strong> ${orden.codigo_orden || "No disponible"}`;
-            ticketModalParagraphs[1].innerHTML = `<strong>Estado orden:</strong> ${orden.estado || "No disponible"}`;
-            ticketModalParagraphs[2].innerHTML = `<strong>Estado pago:</strong> ${pago?.estado || "No disponible"}`;
-            ticketModalParagraphs[3].innerHTML = `<strong>Comprador:</strong> ${fullName || "No disponible"}`;
-            ticketModalParagraphs[4].innerHTML = `<strong>Mensaje:</strong> ${data?.message || "Sin novedades"}`;
+            ticketModalParagraphs[0].innerHTML = `<strong>Orden:</strong> ${escapeHtml(orden.codigo_orden || "No disponible")}`;
+            ticketModalParagraphs[1].innerHTML = `<strong>Estado orden:</strong> ${escapeHtml(orden.estado || "No disponible")}`;
+            ticketModalParagraphs[2].innerHTML = `<strong>Estado pago:</strong> ${escapeHtml(pago?.estado || "No disponible")}`;
+            ticketModalParagraphs[3].innerHTML = `<strong>Comprador:</strong> ${escapeHtml(fullName || "No disponible")}`;
+            ticketModalParagraphs[4].innerHTML = `<strong>Mensaje:</strong> ${escapeHtml(data?.message || "Sin novedades")}`;
         }
 
         if (resumenRows.length >= 6) {
             resumenRows[0].innerHTML = `<span>Evento</span><strong>${mode === "processing" ? "Generando..." : "No disponible"}</strong>`;
             resumenRows[1].innerHTML = `<span>Cantidad</span><strong>${Number(estadoConsulta.total_entradas || 0)}</strong>`;
             resumenRows[2].innerHTML = `<span>Precio unitario</span><strong>No disponible</strong>`;
-            resumenRows[3].innerHTML = `<span>Método de pago</span><strong>${pago?.proveedor_pago || "Payphone"}</strong>`;
-            resumenRows[4].innerHTML = `<span>Estado</span><strong class="${mode === "failed" ? "" : "success-text"}">${friendlyStatus}</strong>`;
+            resumenRows[3].innerHTML = `<span>Método de pago</span><strong>${escapeHtml(pago?.proveedor_pago || "Payphone")}</strong>`;
+            resumenRows[4].innerHTML = `<span>Estado</span><strong class="${mode === "failed" ? "" : "success-text"}">${escapeHtml(friendlyStatus)}</strong>`;
             resumenRows[5].innerHTML = `<span>Total</span><strong>${formatPrice(orden.total)}</strong>`;
         }
     }
@@ -241,18 +250,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             const buyerCardRows = detailCards[1].querySelectorAll(".detail-item");
 
             if (eventCardRows.length >= 5) {
-                eventCardRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento.nombre}</strong>`;
+                eventCardRows[0].innerHTML = `<span>Evento</span><strong>${escapeHtml(ticket.evento.nombre)}</strong>`;
                 eventCardRows[1].innerHTML = `<span>Fecha</span><strong>${formatDate(ticket.evento.fecha_evento)}</strong>`;
                 eventCardRows[2].innerHTML = `<span>Hora</span><strong>${formatTime(ticket.evento.fecha_evento)}</strong>`;
-                eventCardRows[3].innerHTML = `<span>Lugar</span><strong>${ticket.evento.lugar || "No disponible"}</strong>`;
+                eventCardRows[3].innerHTML = `<span>Lugar</span><strong>${escapeHtml(ticket.evento.lugar || "No disponible")}</strong>`;
                 eventCardRows[4].innerHTML = `<span>Cantidad</span><strong>${data.entradas.length} entrada${data.entradas.length > 1 ? "s" : ""}</strong>`;
             }
 
             if (buyerCardRows.length >= 5) {
-                buyerCardRows[0].innerHTML = `<span>Nombre</span><strong>${fullName || "No disponible"}</strong>`;
-                buyerCardRows[1].innerHTML = `<span>Correo</span><strong>${comprador.email || "No disponible"}</strong>`;
-                buyerCardRows[2].innerHTML = `<span>Teléfono</span><strong>${comprador.telefono || "No disponible"}</strong>`;
-                buyerCardRows[3].innerHTML = `<span>Documento</span><strong>${comprador.documento || "No disponible"}</strong>`;
+                buyerCardRows[0].innerHTML = `<span>Nombre</span><strong>${escapeHtml(fullName || "No disponible")}</strong>`;
+                buyerCardRows[1].innerHTML = `<span>Correo</span><strong>${escapeHtml(comprador.email || "No disponible")}</strong>`;
+                buyerCardRows[2].innerHTML = `<span>Teléfono</span><strong>${escapeHtml(comprador.telefono || "No disponible")}</strong>`;
+                buyerCardRows[3].innerHTML = `<span>Documento</span><strong>${escapeHtml(comprador.documento || "No disponible")}</strong>`;
                 buyerCardRows[4].innerHTML = `<span>Total pagado</span><strong>${formatPrice(orden.total)}</strong>`;
             }
         }
@@ -262,17 +271,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (ticketModalParagraphs.length >= 5) {
             ticketModalParagraphs[0].innerHTML = `<strong>Fecha:</strong> ${formatDate(ticket.evento.fecha_evento)}`;
             ticketModalParagraphs[1].innerHTML = `<strong>Hora:</strong> ${formatTime(ticket.evento.fecha_evento)}`;
-            ticketModalParagraphs[2].innerHTML = `<strong>Lugar:</strong> ${ticket.evento.lugar || "No disponible"}`;
-            ticketModalParagraphs[3].innerHTML = `<strong>Asistente:</strong> ${fullName || "No disponible"}`;
-            ticketModalParagraphs[4].innerHTML = `<strong>Código:</strong> ${ticket.codigo}`;
+            ticketModalParagraphs[2].innerHTML = `<strong>Lugar:</strong> ${escapeHtml(ticket.evento.lugar || "No disponible")}`;
+            ticketModalParagraphs[3].innerHTML = `<strong>Asistente:</strong> ${escapeHtml(fullName || "No disponible")}`;
+            ticketModalParagraphs[4].innerHTML = `<strong>Código:</strong> ${escapeHtml(ticket.codigo)}`;
         }
 
         if (resumenRows.length >= 6) {
-            resumenRows[0].innerHTML = `<span>Evento</span><strong>${ticket.evento.nombre}</strong>`;
+            resumenRows[0].innerHTML = `<span>Evento</span><strong>${escapeHtml(ticket.evento.nombre)}</strong>`;
             resumenRows[1].innerHTML = `<span>Cantidad</span><strong>${data.entradas.length}</strong>`;
             resumenRows[2].innerHTML = `<span>Precio unitario</span><strong>${formatPrice(ticket.tipo.precio)}</strong>`;
-            resumenRows[3].innerHTML = `<span>Método de pago</span><strong>${data?.pago?.proveedor_pago || "Payphone"}</strong>`;
-            resumenRows[4].innerHTML = `<span>Estado</span><strong class="success-text">${friendlyStatus}</strong>`;
+            resumenRows[3].innerHTML = `<span>Método de pago</span><strong>${escapeHtml(data?.pago?.proveedor_pago || "Payphone")}</strong>`;
+            resumenRows[4].innerHTML = `<span>Estado</span><strong class="success-text">${escapeHtml(friendlyStatus)}</strong>`;
             resumenRows[5].innerHTML = `<span>Total</span><strong>${formatPrice(orden.total)}</strong>`;
         }
     }

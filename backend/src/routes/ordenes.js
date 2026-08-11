@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const QRCode = require('qrcode');
 const router = express.Router();
 const db = require('../config/db');
@@ -6,6 +7,11 @@ const db = require('../config/db');
 const ORDER_EXPIRATION_MINUTES = (() => {
     const raw = Number(process.env.ORDER_EXPIRATION_MINUTES);
     return Number.isInteger(raw) && raw > 0 ? raw : 15;
+})();
+
+const IVA_RATE = (() => {
+    const raw = Number(process.env.IVA_RATE ?? 0);
+    return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0;
 })();
 
 function generarCodigoOrden() {
@@ -56,11 +62,67 @@ function addMinutesSafe(value, minutes) {
     return date.toISOString();
 }
 
+function getIdempotencyKey(req) {
+    const value = req.get('Idempotency-Key') || req.body?.idempotency_key || '';
+    const key = normalizeString(value);
+    if (!key) return null;
+    return /^[A-Za-z0-9._:-]{16,100}$/.test(key) ? key : false;
+}
+
+function createRequestHash(payload) {
+    return crypto.createHash('sha256').update(JSON.stringify(payload || {}), 'utf8').digest('hex');
+}
+
+async function obtenerOrdenPorIdempotencia(executor, idempotencyKey) {
+    if (!idempotencyKey) return null;
+    const [rows] = await executor.execute(
+        `SELECT o.id_orden, o.codigo_orden, o.estado, o.subtotal, o.iva, o.total,
+                o.fecha_expiracion, o.idempotency_hash,
+                c.id_cliente, c.nombres, c.apellidos, c.email, c.telefono,
+                c.cedula_ruc, c.direccion
+         FROM ordenes o
+         INNER JOIN clientes c ON c.id_cliente = o.id_cliente
+         WHERE o.idempotency_key = ?
+         LIMIT 1`,
+        [idempotencyKey]
+    );
+    return rows[0] || null;
+}
+
+function buildOrdenResponse(row, isIdempotentReplay = false) {
+    return {
+        ok: true,
+        message: isIdempotentReplay ? 'La orden ya habÃ­a sido creada anteriormente' : 'Orden creada correctamente',
+        idempotent_replay: isIdempotentReplay,
+        orden: {
+            id_orden: row.id_orden,
+            codigo_orden: row.codigo_orden,
+            estado: row.estado,
+            subtotal: toNumber(row.subtotal),
+            iva: toNumber(row.iva),
+            total: toNumber(row.total),
+            fecha_expiracion: toIsoSafe(row.fecha_expiracion),
+            minutos_expiracion: ORDER_EXPIRATION_MINUTES,
+            cliente: {
+                id_cliente: row.id_cliente,
+                nombres: row.nombres,
+                apellidos: row.apellidos,
+                email: row.email,
+                telefono: row.telefono,
+                cedula_ruc: row.cedula_ruc,
+                direccion: row.direccion
+            }
+        }
+    };
+}
+
 // =========================
 // CREAR ORDEN
 // =========================
 router.post('/', async (req, res) => {
     let connection;
+    let idempotencyKey = null;
+    let idempotencyHash = null;
 
     try {
         connection = await db.getConnection();
@@ -72,6 +134,30 @@ router.post('/', async (req, res) => {
             iva,
             total
         } = req.body || {};
+
+        idempotencyKey = getIdempotencyKey(req);
+        if (idempotencyKey === false) {
+            return res.status(400).json({
+                ok: false,
+                message: 'Idempotency-Key debe tener entre 16 y 100 caracteres seguros'
+            });
+        }
+
+        if (idempotencyKey) {
+            idempotencyHash = createRequestHash(req.body);
+            const ordenExistente = await obtenerOrdenPorIdempotencia(connection, idempotencyKey);
+
+            if (ordenExistente) {
+                if (ordenExistente.idempotency_hash !== idempotencyHash) {
+                    return res.status(409).json({
+                        ok: false,
+                        message: 'La clave de idempotencia ya fue utilizada con otros datos'
+                    });
+                }
+
+                return res.status(200).json(buildOrdenResponse(ordenExistente, true));
+            }
+        }
 
         if (!cliente || typeof cliente !== 'object') {
             return res.status(400).json({
@@ -253,9 +339,11 @@ router.post('/', async (req, res) => {
             });
         }
 
-        const subtotalFinal = subtotal !== undefined ? roundToTwo(subtotalBody) : roundToTwo(subtotalCalculado);
-        const ivaFinal = iva !== undefined ? roundToTwo(ivaBody) : 0;
-        const totalFinal = total !== undefined ? roundToTwo(totalBody) : roundToTwo(subtotalFinal + ivaFinal);
+        // Nunca se confÃ­a en importes enviados por el navegador. Se conservan
+        // esos campos en el contrato de entrada, pero el cobro se calcula aquÃ­.
+        const subtotalFinal = roundToTwo(subtotalCalculado);
+        const ivaFinal = roundToTwo(subtotalFinal * IVA_RATE);
+        const totalFinal = roundToTwo(subtotalFinal + ivaFinal);
 
         if (subtotalFinal < 0 || ivaFinal < 0 || totalFinal < 0) {
             await connection.rollback();
@@ -294,10 +382,21 @@ router.post('/', async (req, res) => {
                 estado,
                 fecha_creacion,
                 fecha_actualizacion,
-                fecha_expiracion
+                fecha_expiracion,
+                idempotency_key,
+                idempotency_hash
             )
-             VALUES (?, ?, ?, ?, ?, 'pendiente', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
-            [id_cliente, codigo_orden, subtotalFinal, ivaFinal, totalFinal, ORDER_EXPIRATION_MINUTES]
+             VALUES (?, ?, ?, ?, ?, 'pendiente', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL ? MINUTE), ?, ?)`,
+            [
+                id_cliente,
+                codigo_orden,
+                subtotalFinal,
+                ivaFinal,
+                totalFinal,
+                ORDER_EXPIRATION_MINUTES,
+                idempotencyKey,
+                idempotencyHash
+            ]
         );
 
         const id_orden = ordenInsert.insertId;
@@ -359,6 +458,23 @@ router.post('/', async (req, res) => {
         }
 
         console.error('❌ Error creando orden:', error);
+
+        if (idempotencyKey && (error?.code === 'ER_DUP_ENTRY' || error?.errno === 1062)) {
+            try {
+                const ordenExistente = await obtenerOrdenPorIdempotencia(connection, idempotencyKey);
+                if (ordenExistente && ordenExistente.idempotency_hash === idempotencyHash) {
+                    return res.status(200).json(buildOrdenResponse(ordenExistente, true));
+                }
+                if (ordenExistente) {
+                    return res.status(409).json({
+                        ok: false,
+                        message: 'La clave de idempotencia ya fue utilizada con otros datos'
+                    });
+                }
+            } catch (lookupError) {
+                console.error('Error recuperando orden idempotente:', lookupError.message);
+            }
+        }
 
         return res.status(500).json({
             ok: false,

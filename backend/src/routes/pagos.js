@@ -95,6 +95,50 @@ function isApprovedTransaction(pagoReal) {
     return transactionStatus === 'approved' || statusCode === 3;
 }
 
+function getGatewayTransactionId(pagoReal) {
+    return getPayloadValue(
+        pagoReal,
+        'id',
+        'transactionId',
+        'transactionID',
+        'Id',
+        'TransactionId',
+        'TransactionID'
+    );
+}
+
+function getGatewayAmountInCents(pagoReal) {
+    const raw = pagoReal?.amount ?? pagoReal?.totalAmount ?? pagoReal?.total_amount;
+    const amount = Number(raw);
+    return Number.isInteger(amount) && amount > 0 ? amount : null;
+}
+
+function validateApprovedPayment(pagoReal, orderRow, transactionId, clientTransactionId) {
+    const expectedAmount = Math.round(Number(orderRow?.total || 0) * 100);
+    const gatewayAmount = getGatewayAmountInCents(pagoReal);
+    const gatewayCurrency = normalizeString(pagoReal?.currency || pagoReal?.currencyCode || 'USD').toUpperCase();
+    const gatewayTransactionId = getGatewayTransactionId(pagoReal);
+    const gatewayReference = getGatewayReference(pagoReal, null);
+
+    if (!Number.isInteger(expectedAmount) || expectedAmount <= 0) {
+        return { ok: false, message: 'La orden tiene un monto invÃ¡lido' };
+    }
+    if (gatewayAmount === null || gatewayAmount !== expectedAmount) {
+        return { ok: false, message: 'El monto confirmado no coincide con la orden' };
+    }
+    if (gatewayCurrency !== 'USD') {
+        return { ok: false, message: 'La moneda confirmada no coincide con la orden' };
+    }
+    if (gatewayTransactionId && gatewayTransactionId !== String(transactionId)) {
+        return { ok: false, message: 'El identificador confirmado no coincide con la transacciÃ³n' };
+    }
+    if (gatewayReference !== String(clientTransactionId)) {
+        return { ok: false, message: 'La referencia confirmada no coincide con la orden' };
+    }
+
+    return { ok: true, expectedAmount };
+}
+
 function mapGatewayStatusToPagoEstado(pagoReal) {
     const status = normalizeLower(
         pagoReal?.transactionStatus ||
@@ -378,15 +422,7 @@ async function upsertPagoAprobado(connection, orderRow, transactionId, clientTra
     const referenciaPago = getGatewayReference(pagoReal, clientTransactionId);
     const respuestaGateway = safeJsonStringify(pagoReal);
 
-    const montoAprobado = Number(
-        pagoReal?.amount ??
-        pagoReal?.amountWithoutTax ??
-        orderRow.total
-    );
-
-    const montoNormalizado = Number.isFinite(montoAprobado) && montoAprobado > 0
-        ? montoAprobado
-        : Number(orderRow.total || 0);
+    const montoNormalizado = Number(orderRow.total || 0);
 
     const [pagoRows] = await connection.execute(
         `
@@ -477,6 +513,12 @@ async function markPaymentAsNotApproved(clientTransactionId, transactionId, pago
 
         if (ordenRows.length > 0) {
             const orden = ordenRows[0];
+            const referenciaPago = getGatewayReference(pagoReal, null);
+
+            if (normalizeLower(orden.estado) !== 'pendiente' || referenciaPago !== clientTransactionId) {
+                console.warn(`[ConciliaciÃ³n] Se omite rechazo para una orden no pendiente o con referencia distinta: ${clientTransactionId}`);
+                return gatewayEstado;
+            }
 
             await db.execute(
                 `
@@ -492,10 +534,11 @@ async function markPaymentAsNotApproved(clientTransactionId, transactionId, pago
                     respuesta_gateway = ?,
                     fecha_actualizacion = NOW()
                 WHERE id_orden = ?
+                  AND estado <> 'aprobado'
                 `,
                 [
                     String(transactionId),
-                    getGatewayReference(pagoReal, clientTransactionId),
+                    referenciaPago,
                     getAuthorizationCodeFromGateway(pagoReal),
                     Number(orden.total || 0),
                     gatewayEstado,
@@ -596,11 +639,55 @@ async function processApprovedPayment(transactionId, clientTransactionId) {
         const orden = ordenRows[0];
         const estadoOrdenActual = normalizeLower(orden.estado);
 
+        const conciliacion = validateApprovedPayment(
+            pagoReal,
+            orden,
+            transactionId,
+            clientTransactionId
+        );
+
+        if (!conciliacion.ok) {
+            await connection.rollback();
+            connection.release();
+            connection = null;
+
+            console.warn(`[ConciliaciÃ³n] Pago rechazado para ${clientTransactionId}: ${conciliacion.message}`);
+            return {
+                ok: false,
+                statusCode: 409,
+                message: conciliacion.message
+            };
+        }
+
+        const [transactionOwnerRows] = await connection.execute(
+            `
+            SELECT id_orden
+            FROM pagos
+            WHERE transaccion_id = ?
+              AND id_orden <> ?
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [String(transactionId), orden.id_orden]
+        );
+
+        if (transactionOwnerRows.length > 0) {
+            await connection.rollback();
+            connection.release();
+            connection = null;
+
+            return {
+                ok: false,
+                statusCode: 409,
+                message: 'La transacciÃ³n ya estÃ¡ asociada a otra orden'
+            };
+        }
+
         const [existingEntriesRows] = await connection.execute(
             `
-            SELECT COUNT(*) AS total
-            FROM entradas
-            WHERE id_orden = ?
+        SELECT COUNT(*) AS total
+        FROM entradas
+        WHERE id_orden = ?
             `,
             [orden.id_orden]
         );

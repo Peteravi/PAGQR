@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS tipos_entrada (
     fecha_fin_venta DATETIME NULL,
     estado ENUM('activo', 'inactivo', 'agotado') NOT NULL DEFAULT 'activo',
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_tipos_entrada_precio CHECK (precio >= 0),
+    CONSTRAINT chk_tipos_entrada_stock_total CHECK (stock_total >= 0),
+    CONSTRAINT chk_tipos_entrada_stock_disponible CHECK (stock_disponible >= 0 AND stock_disponible <= stock_total),
+    CONSTRAINT chk_tipos_entrada_max_compra CHECK (max_por_compra > 0),
     CONSTRAINT fk_tipos_entrada_evento
         FOREIGN KEY (id_evento) REFERENCES eventos(id_evento)
         ON DELETE CASCADE
@@ -53,6 +57,8 @@ CREATE TABLE IF NOT EXISTS ordenes (
     id_orden INT AUTO_INCREMENT PRIMARY KEY,
     id_cliente INT NOT NULL,
     codigo_orden VARCHAR(50) NOT NULL UNIQUE,
+    idempotency_key VARCHAR(100) NULL,
+    idempotency_hash CHAR(64) NULL,
     subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     iva DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -63,6 +69,9 @@ CREATE TABLE IF NOT EXISTS ordenes (
     observacion TEXT NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_ordenes_idempotency_key UNIQUE (idempotency_key),
+    CONSTRAINT chk_ordenes_importes CHECK (subtotal >= 0 AND iva >= 0 AND total >= 0),
+    CONSTRAINT chk_ordenes_total CHECK (total = subtotal + iva),
     CONSTRAINT fk_ordenes_cliente
         FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
         ON DELETE RESTRICT
@@ -76,6 +85,8 @@ CREATE TABLE IF NOT EXISTS orden_detalle (
     cantidad INT NOT NULL,
     precio_unitario DECIMAL(10,2) NOT NULL,
     subtotal DECIMAL(10,2) NOT NULL,
+    CONSTRAINT chk_orden_detalle_cantidad CHECK (cantidad > 0),
+    CONSTRAINT chk_orden_detalle_importes CHECK (precio_unitario >= 0 AND subtotal >= 0),
     CONSTRAINT fk_orden_detalle_orden
         FOREIGN KEY (id_orden) REFERENCES ordenes(id_orden)
         ON DELETE CASCADE
@@ -100,6 +111,7 @@ CREATE TABLE IF NOT EXISTS pagos (
     fecha_pago DATETIME NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_pagos_monto CHECK (monto > 0),
     CONSTRAINT fk_pagos_orden
         FOREIGN KEY (id_orden) REFERENCES ordenes(id_orden)
         ON DELETE CASCADE
