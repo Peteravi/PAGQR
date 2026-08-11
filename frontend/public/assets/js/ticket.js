@@ -39,6 +39,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         return `$${Number(value || 0).toFixed(2)}`;
     }
 
+    function setLabeledValue(element, label, value) {
+        if (!element) return;
+        const labelElement = document.createElement("span");
+        const valueElement = document.createElement("strong");
+        labelElement.textContent = label;
+        valueElement.textContent = String(value ?? "");
+        element.replaceChildren(labelElement, valueElement);
+    }
+
     function getTicketCode(ticket) {
         return ticket?.codigo || ticket?.codigo_entrada || null;
     }
@@ -137,12 +146,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         if (dataRows.length >= 6) {
-            dataRows[0].innerHTML = `<span>Fecha</span><strong>${formatDate(ticket?.evento?.fecha_evento)}</strong>`;
-            dataRows[1].innerHTML = `<span>Hora</span><strong>${formatTime(ticket?.evento?.fecha_evento)}</strong>`;
-            dataRows[2].innerHTML = `<span>Lugar</span><strong>${ticket?.evento?.lugar || ticket?.evento?.direccion || "No disponible"}</strong>`;
-            dataRows[3].innerHTML = `<span>Asistente</span><strong>${comprador || "No disponible"}</strong>`;
-            dataRows[4].innerHTML = `<span>Documento</span><strong>${ticket?.comprador?.documento || "No disponible"}</strong>`;
-            dataRows[5].innerHTML = `<span>Código</span><strong>${codigoTicket}</strong>`;
+            setLabeledValue(dataRows[0], "Fecha", formatDate(ticket?.evento?.fecha_evento));
+            setLabeledValue(dataRows[1], "Hora", formatTime(ticket?.evento?.fecha_evento));
+            setLabeledValue(dataRows[2], "Lugar", ticket?.evento?.lugar || ticket?.evento?.direccion || "No disponible");
+            setLabeledValue(dataRows[3], "Asistente", comprador || "No disponible");
+            setLabeledValue(dataRows[4], "Documento", ticket?.comprador?.documento || "No disponible");
+            setLabeledValue(dataRows[5], "Código", codigoTicket);
         }
 
         if (qrImage) {
@@ -162,9 +171,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         if (miniInfo.length >= 3) {
-            miniInfo[0].innerHTML = `<strong>Tipo:</strong> ${ticket?.tipo?.nombre || "General"}`;
-            miniInfo[1].innerHTML = `<strong>Cantidad:</strong> 1`;
-            miniInfo[2].innerHTML = `<strong>Valor:</strong> ${formatPrice(ticket?.tipo?.precio)}`;
+            setLabeledValue(miniInfo[0], "Tipo:", ticket?.tipo?.nombre || "General");
+            setLabeledValue(miniInfo[1], "Cantidad:", "1");
+            setLabeledValue(miniInfo[2], "Valor:", formatPrice(ticket?.tipo?.precio));
         }
 
         if (modalQRImage) {

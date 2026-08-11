@@ -182,20 +182,27 @@ document.addEventListener("DOMContentLoaded", () => {
         const badgeText = getBadgeText(ticket?.estado);
         const badgeClass = getBadgeClass(ticket?.estado);
 
+        const escapeHtml = (value) => String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+
         article.innerHTML = `
             <div class="ticket-top">
-                <span class="${badgeClass}">${badgeText}</span>
-                <span class="ticket-number">#${codigo}</span>
+                <span class="${escapeHtml(badgeClass)}">${escapeHtml(badgeText)}</span>
+                <span class="ticket-number">#${escapeHtml(codigo)}</span>
             </div>
 
-            <h3>${getEventName(ticket)}</h3>
+            <h3>${escapeHtml(getEventName(ticket))}</h3>
 
             <div class="ticket-info">
-                <p><strong>Fecha:</strong> ${fecha}</p>
-                <p><strong>Hora:</strong> ${hora}</p>
-                <p><strong>Lugar:</strong> ${getEventLocation(ticket)}</p>
-                <p><strong>Tipo:</strong> ${getTicketTypeName(ticket)}</p>
-                <p><strong>Comprador:</strong> ${comprador || "No disponible"}</p>
+                <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+                <p><strong>Hora:</strong> ${escapeHtml(hora)}</p>
+                <p><strong>Lugar:</strong> ${escapeHtml(getEventLocation(ticket))}</p>
+                <p><strong>Tipo:</strong> ${escapeHtml(getTicketTypeName(ticket))}</p>
+                <p><strong>Comprador:</strong> ${escapeHtml(comprador || "No disponible")}</p>
             </div>
 
             <div class="ticket-actions">
