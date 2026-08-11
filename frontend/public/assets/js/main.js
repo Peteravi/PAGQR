@@ -719,12 +719,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function crearOrden(payloadOrden) {
+    function obtenerClaveIdempotencia(payloadOrden) {
+        const storageKey = 'pagqr_pending_order_idempotency';
+        const payloadText = JSON.stringify(payloadOrden);
+
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+            if (saved?.payload === payloadText && saved?.key) return saved.key;
+        } catch {
+            sessionStorage.removeItem(storageKey);
+        }
+
+        const key = globalThis.crypto?.randomUUID?.()
+            || `ord-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem(storageKey, JSON.stringify({ key, payload: payloadText }));
+        return key;
+    }
+
+    async function crearOrden(payloadOrden, idempotencyKey) {
         const { response, data } = await fetchJson(API_ORDENES, {
             method: 'POST',
             withCsrf: true,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Idempotency-Key': idempotencyKey
             },
             body: JSON.stringify(payloadOrden)
         });
@@ -768,7 +786,8 @@ document.addEventListener('DOMContentLoaded', () => {
             limpiarTicketActual();
 
             const payloadOrden = construirPayloadOrden();
-            const orden = await crearOrden(payloadOrden);
+            const idempotencyKey = obtenerClaveIdempotencia(payloadOrden);
+            const orden = await crearOrden(payloadOrden, idempotencyKey);
             const pago = await generarLinkPago(orden.id_orden);
             const url =
                 pago.paymentUrl ||
@@ -778,6 +797,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!url) {
                 throw new Error("No se pudo obtener URL de pago");
             }
+
+            sessionStorage.removeItem('pagqr_pending_order_idempotency');
 
             guardarUltimaCompra({
                 id_orden: orden.id_orden,
