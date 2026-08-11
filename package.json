@@ -4,8 +4,8 @@
   "description": "Plataforma PagQR con frontend, backend y MySQL",
   "main": "backend/src/server.js",
   "scripts": {
-    "start": "node backend/src/server.js",
-    "dev": "node backend/src/server.js",
+    "start": "node init && node backend/src/server.js",
+    "dev": "node init && node backend/src/server.js",
     "backend": "node backend/src/server.js"
   },
   "dependencies": {

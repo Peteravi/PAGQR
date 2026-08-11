@@ -93,6 +93,65 @@ const csrfProtection = csrf({
     cookie: false
 });
 
+function createApiLimiter({ windowMs, max, message, skip }) {
+    return rateLimit({
+        windowMs,
+        max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        skip,
+        message: {
+            ok: false,
+            message
+        }
+    });
+}
+
+function positiveIntegerEnv(name, fallback) {
+    const value = Number(process.env[name]);
+    return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+const orderLimiter = createApiLimiter({
+    windowMs: 60 * 1000,
+    max: positiveIntegerEnv('RATE_LIMIT_ORDERS_PER_MINUTE', 20),
+    skip: (req) => req.method !== 'POST',
+    message: 'Demasiadas solicitudes de compra. Espera un momento e intenta nuevamente.'
+});
+
+const paymentLimiter = createApiLimiter({
+    windowMs: 60 * 1000,
+    max: positiveIntegerEnv('RATE_LIMIT_PAYMENTS_PER_MINUTE', 30),
+    message: 'Demasiados intentos de iniciar el pago. Espera un momento.'
+});
+
+const ticketLookupLimiter = createApiLimiter({
+    windowMs: 5 * 60 * 1000,
+    max: positiveIntegerEnv('RATE_LIMIT_TICKET_LOOKUPS_PER_5_MINUTES', 60),
+    message: 'Demasiadas consultas de entradas. Intenta nuevamente en unos minutos.'
+});
+
+const contactLimiter = createApiLimiter({
+    windowMs: 60 * 60 * 1000,
+    max: positiveIntegerEnv('RATE_LIMIT_CONTACT_PER_HOUR', 5),
+    skip: (req) => req.method !== 'POST',
+    message: 'Has enviado demasiados mensajes. Intenta nuevamente mÃ¡s tarde.'
+});
+
+const publicEventsLimiter = createApiLimiter({
+    windowMs: 60 * 1000,
+    max: positiveIntegerEnv('RATE_LIMIT_PUBLIC_READS_PER_MINUTE', 300),
+    message: 'Demasiadas consultas. Espera un momento e intenta nuevamente.'
+});
+
+function protectAdminMutation(req, res, next) {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+    }
+
+    return csrfProtection(req, res, next);
+}
+
 // IMPORTANTE:
 // Excluir el webhook de PayPhone de CSRF.
 // El frontend público sí puede usar CSRF pidiéndolo por /api/admin-auth/csrf,
@@ -145,17 +204,18 @@ app.use('/api/admin-auth', adminAuthRoutes);
 
 // 🔓 Públicas
 app.use('/', facturasRoutes);
-app.use('/api/ordenes', ordenesRoutes);
-app.use('/api/entradas', entradasRoutes);
+app.use('/api/ordenes', orderLimiter, ordenesRoutes);
+app.use('/api/entradas', ticketLookupLimiter, entradasRoutes);
+app.use('/api/pagos/generar-link', paymentLimiter);
 app.use('/api/pagos', pagosRouter);
-app.use('/api/eventos-publicos', eventosPublicosRoutes);
-app.use('/api/contacto', contactoRoutes);
+app.use('/api/eventos-publicos', publicEventsLimiter, eventosPublicosRoutes);
+app.use('/api/contacto', contactLimiter, contactoRoutes);
 
 // 🔐 Protegidas admin
-app.use('/api/eventos', requireAdminApi, eventosRoutes);
-app.use('/api/tipos-entrada', requireAdminApi, tiposEntradaRoutes);
-app.use('/api/ventas', requireAdminApi, ventasRoutes);
-app.use('/api/asistentes', requireAdminApi, asistentesRoutes);
+app.use('/api/eventos', requireAdminApi, protectAdminMutation, eventosRoutes);
+app.use('/api/tipos-entrada', requireAdminApi, protectAdminMutation, tiposEntradaRoutes);
+app.use('/api/ventas', requireAdminApi, protectAdminMutation, ventasRoutes);
+app.use('/api/asistentes', requireAdminApi, protectAdminMutation, asistentesRoutes);
 
 // =====================================================
 // LOGIN

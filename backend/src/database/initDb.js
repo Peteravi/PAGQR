@@ -32,7 +32,26 @@ const REQUIRED_INDEXES = [
   { table: 'entradas', index: 'idx_entradas_evento', sql: 'CREATE INDEX idx_entradas_evento ON entradas(id_evento)' },
   { table: 'entradas', index: 'idx_entradas_estado', sql: 'CREATE INDEX idx_entradas_estado ON entradas(estado)' },
   { table: 'validaciones_qr', index: 'idx_validaciones_fecha', sql: 'CREATE INDEX idx_validaciones_fecha ON validaciones_qr(fecha_validacion)' },
-  { table: 'ordenes', index: 'idx_ordenes_expiracion', sql: 'CREATE INDEX idx_ordenes_expiracion ON ordenes(estado, fecha_expiracion)' }
+  { table: 'ordenes', index: 'idx_ordenes_expiracion', sql: 'CREATE INDEX idx_ordenes_expiracion ON ordenes(estado, fecha_expiracion)' },
+  { table: 'ordenes', index: 'uq_ordenes_idempotency_key', sql: 'CREATE UNIQUE INDEX uq_ordenes_idempotency_key ON ordenes(idempotency_key)' },
+  { table: 'orden_detalle', index: 'idx_orden_detalle_orden_tipo', sql: 'CREATE INDEX idx_orden_detalle_orden_tipo ON orden_detalle(id_orden, id_tipo_entrada)' },
+  { table: 'pagos', index: 'idx_pagos_orden_estado', sql: 'CREATE INDEX idx_pagos_orden_estado ON pagos(id_orden, estado)' },
+  { table: 'pagos', index: 'idx_pagos_transaccion', sql: 'CREATE INDEX idx_pagos_transaccion ON pagos(transaccion_id)' },
+  { table: 'entradas', index: 'idx_entradas_orden', sql: 'CREATE INDEX idx_entradas_orden ON entradas(id_orden)' },
+  { table: 'entradas', index: 'idx_entradas_evento_estado', sql: 'CREATE INDEX idx_entradas_evento_estado ON entradas(id_evento, estado)' },
+  { table: 'validaciones_qr', index: 'idx_validaciones_entrada_fecha', sql: 'CREATE INDEX idx_validaciones_entrada_fecha ON validaciones_qr(id_entrada, fecha_validacion)' }
+];
+
+const REQUIRED_CHECKS = [
+  { table: 'tipos_entrada', name: 'chk_tipos_entrada_precio', expression: 'precio >= 0' },
+  { table: 'tipos_entrada', name: 'chk_tipos_entrada_stock_total', expression: 'stock_total >= 0' },
+  { table: 'tipos_entrada', name: 'chk_tipos_entrada_stock_disponible', expression: 'stock_disponible >= 0 AND stock_disponible <= stock_total' },
+  { table: 'tipos_entrada', name: 'chk_tipos_entrada_max_compra', expression: 'max_por_compra > 0' },
+  { table: 'ordenes', name: 'chk_ordenes_importes', expression: 'subtotal >= 0 AND iva >= 0 AND total >= 0' },
+  { table: 'ordenes', name: 'chk_ordenes_total', expression: 'total = subtotal + iva' },
+  { table: 'orden_detalle', name: 'chk_orden_detalle_cantidad', expression: 'cantidad > 0' },
+  { table: 'orden_detalle', name: 'chk_orden_detalle_importes', expression: 'precio_unitario >= 0 AND subtotal >= 0' },
+  { table: 'pagos', name: 'chk_pagos_monto', expression: 'monto > 0' }
 ];
 
 async function ensureDatabase() {
@@ -137,6 +156,20 @@ async function ensureOrdenesSchema(pool) {
     `ALTER TABLE ordenes ADD COLUMN observacion TEXT NULL AFTER fecha_expiracion`
   );
 
+  await ensureColumnExists(
+    pool,
+    'ordenes',
+    'idempotency_key',
+    `ALTER TABLE ordenes ADD COLUMN idempotency_key VARCHAR(100) NULL AFTER codigo_orden`
+  );
+
+  await ensureColumnExists(
+    pool,
+    'ordenes',
+    'idempotency_hash',
+    `ALTER TABLE ordenes ADD COLUMN idempotency_hash CHAR(64) NULL AFTER idempotency_key`
+  );
+
   await ensureOrdenesEstadoEnum(pool);
 }
 
@@ -180,6 +213,34 @@ async function ensureIndexes(pool) {
   }
 }
 
+async function ensureChecks(pool) {
+  for (const item of REQUIRED_CHECKS) {
+    const [rows] = await pool.query(
+      `
+      SELECT 1
+      FROM information_schema.table_constraints
+      WHERE constraint_schema = ?
+        AND table_name = ?
+        AND constraint_name = ?
+        AND constraint_type = 'CHECK'
+      LIMIT 1
+      `,
+      [DB_NAME, item.table, item.name]
+    );
+
+    if (rows.length === 0) {
+      try {
+        await pool.query(
+          `ALTER TABLE \`${item.table}\` ADD CONSTRAINT \`${item.name}\` CHECK (${item.expression})`
+        );
+        console.log(`âž• RestricciÃ³n creada: ${item.name}`);
+      } catch (error) {
+        console.warn(`âš ï¸ No se pudo crear ${item.name}; revisa datos histÃ³ricos: ${error.message}`);
+      }
+    }
+  }
+}
+
 async function verifyTables(pool) {
   for (const table of REQUIRED_TABLES) {
     const [rows] = await pool.query(
@@ -211,6 +272,7 @@ async function initDatabase(pool) {
     await ensureOrdenesSchema(pool);
     await ensureEventosPayphoneColumns(pool);
     await ensureIndexes(pool);
+    await ensureChecks(pool);
     console.log('✅ Base de datos lista y validada');
   } catch (error) {
     console.error('❌ Error inicializando la base de datos:', error.message);
